@@ -70,6 +70,8 @@ pub enum WMAction {
     Kill,
     FocusNext,
     FocusPrevious,
+    SwapNext,
+    SwapPrevious,
 }
 
 pub fn run() {

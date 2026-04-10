@@ -119,7 +119,7 @@ pub fn event_loop(
                                         let next = wm_state.windows()
                                             [(idx + 1) % wm_state.windows().len()];
                                         focus_and_warp(&conn, screen, next, wm_state);
-                                   }
+                                    }
                                 }
                             }
                             WMAction::FocusPrevious => {
@@ -131,12 +131,37 @@ pub fn event_loop(
                                             + wm_state.windows().len()
                                             - 1)
                                             % wm_state.windows().len()];
-                                        focus_and_warp(&conn, screen, prev, wm_state);
+                                        focus_and_warp(conn, screen, prev, wm_state);
+                                    }
+                                }
+                            }
+                            WMAction::SwapNext => {
+                                if let &Some(win) = wm_state.focused() {
+                                    if let Some(idx) =
+                                        wm_state.windows().iter().position(|&w| w == win)
+                                    {
+					let next_idx = (idx + 1) % wm_state.windows().len();
+                                        wm_state.windows_mut().swap(idx, next_idx);
+                                        retile(conn, screen, wm_state);
+					focus_and_warp(&conn, screen, win, wm_state);
+                                    }
+                                }
+                            }
+                            WMAction::SwapPrevious => {
+                                if let &Some(win) = wm_state.focused() {
+                                    if let Some(idx) =
+                                        wm_state.windows().iter().position(|&w| w == win)
+                                    {
+                                        let prev_idx = (idx + wm_state.windows().len() - 1)
+                                            % wm_state.windows().len();
+                                        wm_state.windows_mut().swap(idx, prev_idx);
+                                        retile(conn, screen, wm_state);
+					focus_and_warp(&conn, screen, win, wm_state);
                                     }
                                 }
                             }
                             WMAction::TagSwitch(idx) => {
-				switch_workspace(&conn, screen, wm_state, idx);
+                                switch_workspace(&conn, screen, wm_state, idx);
                             }
                         }
                     }

@@ -75,6 +75,20 @@ pub fn register_keybinds() -> Vec<KeyBind> {
         KeyBind {
             res: KeyResult {
                 sym: x11_keysyms::XK_j,
+                mods: KeyButMask::from(u16::from(ModMask::M4) | u16::from(ModMask::SHIFT)),
+            },
+            action: WMAction::SwapNext,
+        },
+        KeyBind {
+            res: KeyResult {
+                sym: x11_keysyms::XK_k,
+                mods: KeyButMask::from(u16::from(ModMask::M4) | u16::from(ModMask::SHIFT)),
+            },
+            action: WMAction::SwapPrevious,
+        },
+        KeyBind {
+            res: KeyResult {
+                sym: x11_keysyms::XK_j,
                 mods: KeyButMask::from(u16::from(ModMask::M4)),
             },
             action: WMAction::FocusNext,
