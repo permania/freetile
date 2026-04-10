@@ -11,10 +11,15 @@ use super::{event::event_loop, keys};
 
 type WindowSet = Vec<Window>;
 
+#[derive(Default)]
+pub struct Tag {
+    windows: WindowSet,
+    focused: Option<Window>,
+}
+
 pub struct WMState {
-    pub workspaces: [WindowSet; 8],
+    pub tags: [Tag; 8],
     pub active: usize,
-    pub focused: Option<Window>,
     pub first_keycode: u8,
     pub keysyms: Vec<u32>,
     pub syms_per_keycode: u8,
@@ -23,9 +28,8 @@ pub struct WMState {
 impl WMState {
     pub fn new() -> Self {
         Self {
-            workspaces: Default::default(),
+            tags: Default::default(),
             active: 0,
-            focused: Default::default(),
             first_keycode: Default::default(),
             keysyms: Default::default(),
             syms_per_keycode: Default::default(),
@@ -33,17 +37,36 @@ impl WMState {
     }
 
     pub fn windows(&self) -> &WindowSet {
-        &self.workspaces[self.active]
+        &self.tags[self.active].windows
     }
 
     pub fn windows_mut(&mut self) -> &mut WindowSet {
-        &mut self.workspaces[self.active]
+        &mut self.tags[self.active].windows
+    }
+
+    pub fn focused(&self) -> &Option<u32> {
+        &self.tags[self.active].focused
+    }
+
+    pub fn set_focused(&mut self, set: Option<u32>) -> () {
+        self.tags[self.active].focused = set;
+    }
+}
+
+impl Tag {
+    pub fn windows(&self) -> &WindowSet {
+        &self.windows
+    }
+
+    pub fn windows_mut(&mut self) -> &mut WindowSet {
+        &mut self.windows
     }
 }
 
 #[derive(Debug)]
 pub enum WMAction {
     Spawn(String, Vec<String>),
+    TagSwitch(usize),
     Kill,
     FocusNext,
     FocusPrevious,
@@ -51,9 +74,6 @@ pub enum WMAction {
 
 pub fn run() {
     let (mut wm_state, conn, screen, keybinds) = setup_wm();
-    dbg!(wm_state.keysyms.len());
-    dbg!(wm_state.first_keycode);
-    dbg!(wm_state.syms_per_keycode);
     event_loop(&conn, &screen, &mut wm_state, keybinds);
 }
 
@@ -175,7 +195,7 @@ pub fn focus_and_warp(
 }
 
 pub fn focus_window(conn: &impl Connection, window: Window, state: &mut WMState) {
-    if let Some(prev) = state.focused {
+    if let &Some(prev) = state.focused() {
         conn.change_window_attributes(
             prev,
             &ChangeWindowAttributesAux::new().border_pixel(0xff444444),
@@ -197,7 +217,7 @@ pub fn focus_window(conn: &impl Connection, window: Window, state: &mut WMState)
     conn.set_input_focus(InputFocus::PARENT, window, x11rb::CURRENT_TIME)
         .unwrap();
 
-    state.focused = Some(window);
+    state.set_focused(Some(window));
 
     conn.flush().unwrap();
 }
@@ -209,5 +229,31 @@ fn warp_to_window(conn: &impl Connection, screen: &Screen, window: Window) {
 
     conn.warp_pointer(x11rb::NONE, screen.root, 0, 0, 0, 0, cx, cy)
         .unwrap();
+    conn.flush().unwrap();
+}
+
+pub fn switch_workspace(conn: &impl Connection, screen: &Screen, state: &mut WMState, idx: &usize) {
+    if *idx == state.active {
+        return;
+    }
+
+    for &win in state.windows() {
+        conn.unmap_window(win).unwrap();
+    }
+
+    state.active = *idx;
+    state.set_focused(state.windows().last().copied());
+
+    for &win in state.windows() {
+        conn.map_window(win).unwrap();
+    }
+
+    retile(conn, screen, state);
+
+    if let &Some(win) = state.focused() {
+        focus_and_warp(conn, screen, win, state);
+    }
+
+    conn.clear_area(false, screen.root, 0, 0, 0, 0).unwrap();
     conn.flush().unwrap();
 }

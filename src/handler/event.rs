@@ -13,7 +13,7 @@ use x11rb::{
 
 use crate::handler::{
     keys::{KeyResult, keysym_from_keycode},
-    wm::WMAction,
+    wm::{WMAction, switch_workspace},
 };
 
 use super::{
@@ -47,8 +47,8 @@ pub fn event_loop(
             }
             Event::UnmapNotify(e) => {
                 wm_state.windows_mut().retain(|&w| w != e.window);
-                if wm_state.focused == Some(e.window) {
-                    wm_state.focused = wm_state.windows().last().copied();
+                if wm_state.focused() == &Some(e.window) {
+                    wm_state.set_focused(wm_state.windows().last().copied());
                 }
                 retile(&conn, &screen, wm_state);
                 conn.clear_area(false, screen.root, 0, 0, 0, 0).unwrap();
@@ -83,7 +83,7 @@ pub fn event_loop(
                                 Command::new(cmd).args(args).spawn().unwrap();
                             }
                             WMAction::Kill => {
-                                if let Some(win) = wm_state.focused {
+                                if let &Some(win) = wm_state.focused() {
                                     if wm_state.windows().contains(&win) {
                                         // send WM_DELETE_WINDOW message
                                         let wm_protocols = conn
@@ -112,18 +112,18 @@ pub fn event_loop(
                                 }
                             }
                             WMAction::FocusNext => {
-                                if let Some(win) = wm_state.focused {
+                                if let &Some(win) = wm_state.focused() {
                                     if let Some(idx) =
                                         wm_state.windows().iter().position(|&w| w == win)
                                     {
                                         let next = wm_state.windows()
                                             [(idx + 1) % wm_state.windows().len()];
                                         focus_and_warp(&conn, screen, next, wm_state);
-                                    }
+                                   }
                                 }
                             }
                             WMAction::FocusPrevious => {
-                                if let Some(win) = wm_state.focused {
+                                if let &Some(win) = wm_state.focused() {
                                     if let Some(idx) =
                                         wm_state.windows().iter().position(|&w| w == win)
                                     {
@@ -134,6 +134,9 @@ pub fn event_loop(
                                         focus_and_warp(&conn, screen, prev, wm_state);
                                     }
                                 }
+                            }
+                            WMAction::TagSwitch(idx) => {
+				switch_workspace(&conn, screen, wm_state, idx);
                             }
                         }
                     }
