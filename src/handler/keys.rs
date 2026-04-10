@@ -29,8 +29,6 @@ impl Deref for KeyBind {
 
 impl KeyBind {
     pub fn matches(&self, res: &KeyResult) -> bool {
-        dbg!(normalize_keysym(self.res.sym));
-        dbg!(normalize_keysym(res.sym));
         normalize_keysym(self.res.sym) == normalize_keysym(res.sym) && self.res.mods == res.mods
     }
 }
@@ -47,6 +45,18 @@ macro_rules! tag_keybind {
     };
 }
 
+macro_rules! tag_window_keybind {
+    ($key:ident, $tag:expr) => {
+        KeyBind {
+            res: KeyResult {
+                sym: x11_keysyms::$key,
+                mods: KeyButMask::from(u16::from(ModMask::M4) | u16::from(ModMask::SHIFT)),
+            },
+            action: WMAction::TagWindowSwitch($tag),
+        }
+    };
+}
+
 fn normalize_keysym(sym: u32) -> u32 {
     if sym >= 0x41 && sym <= 0x5A {
         sym + 32
@@ -57,14 +67,22 @@ fn normalize_keysym(sym: u32) -> u32 {
 
 pub fn register_keybinds() -> Vec<KeyBind> {
     let keybinds: Vec<KeyBind> = vec![
-	tag_keybind!(XK_a, 0),
-	tag_keybind!(XK_s, 1),
-	tag_keybind!(XK_d, 2),
-	tag_keybind!(XK_f, 3),
-	tag_keybind!(XK_u, 4),
-	tag_keybind!(XK_i, 5),
-	tag_keybind!(XK_o, 6),
-	tag_keybind!(XK_p, 7),
+        tag_keybind!(XK_a, 0),
+        tag_keybind!(XK_s, 1),
+        tag_keybind!(XK_d, 2),
+        tag_keybind!(XK_f, 3),
+        tag_keybind!(XK_u, 4),
+        tag_keybind!(XK_i, 5),
+        tag_keybind!(XK_o, 6),
+        tag_keybind!(XK_p, 7),
+        tag_window_keybind!(XK_a, 0),
+        tag_window_keybind!(XK_s, 1),
+        tag_window_keybind!(XK_d, 2),
+        tag_window_keybind!(XK_f, 3),
+        tag_window_keybind!(XK_u, 4),
+        tag_window_keybind!(XK_i, 5),
+        tag_window_keybind!(XK_o, 6),
+        tag_window_keybind!(XK_p, 7),
         KeyBind {
             res: KeyResult {
                 sym: x11_keysyms::XK_n,

@@ -5,8 +5,7 @@ use x11rb::{
     protocol::{
         Event,
         xproto::{
-            ChangeWindowAttributesAux, ClientMessageEvent, ConnectionExt, EventMask, KeyButMask,
-            ModMask, NotifyDetail, NotifyMode, Screen,
+            ChangeWindowAttributesAux, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, EventMask, KeyButMask, ModMask, NotifyDetail, NotifyMode, Screen
         },
     },
 };
@@ -140,10 +139,10 @@ pub fn event_loop(
                                     if let Some(idx) =
                                         wm_state.windows().iter().position(|&w| w == win)
                                     {
-					let next_idx = (idx + 1) % wm_state.windows().len();
+                                        let next_idx = (idx + 1) % wm_state.windows().len();
                                         wm_state.windows_mut().swap(idx, next_idx);
                                         retile(conn, screen, wm_state);
-					focus_and_warp(&conn, screen, win, wm_state);
+                                        focus_and_warp(&conn, screen, win, wm_state);
                                     }
                                 }
                             }
@@ -156,12 +155,26 @@ pub fn event_loop(
                                             % wm_state.windows().len();
                                         wm_state.windows_mut().swap(idx, prev_idx);
                                         retile(conn, screen, wm_state);
-					focus_and_warp(&conn, screen, win, wm_state);
+                                        focus_and_warp(&conn, screen, win, wm_state);
                                     }
                                 }
                             }
                             WMAction::TagSwitch(idx) => {
                                 switch_workspace(&conn, screen, wm_state, idx);
+				dbg!(wm_state.active);
+                            }
+                            WMAction::TagWindowSwitch(idx) => {
+                                if let &Some(win) = wm_state.focused() {
+                                    if wm_state.windows().contains(&win) {
+                                        wm_state.set_focused(wm_state.windows().last().copied());
+                                        wm_state.windows_mut().retain(|&w| w != win);
+                                        conn.clear_area(false, screen.root, 0, 0, 0, 0).unwrap();
+
+                                        wm_state.tags[*idx].windows_mut().push(win);
+
+                                        switch_workspace(&conn, screen, wm_state, idx);
+                                    }
+                                }
                             }
                         }
                     }

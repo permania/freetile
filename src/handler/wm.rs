@@ -67,6 +67,7 @@ impl Tag {
 pub enum WMAction {
     Spawn(String, Vec<String>),
     TagSwitch(usize),
+    TagWindowSwitch(usize),
     Kill,
     FocusNext,
     FocusPrevious,
@@ -244,7 +245,9 @@ pub fn switch_workspace(conn: &impl Connection, screen: &Screen, state: &mut WMS
     }
 
     state.active = *idx;
-    state.set_focused(state.windows().last().copied());
+    if state.focused().is_none() {
+        state.set_focused(state.windows().last().copied());
+    }
 
     for &win in state.windows() {
         conn.map_window(win).unwrap();

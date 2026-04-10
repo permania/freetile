@@ -1,3 +1,4 @@
+mod config;
 mod handler;
 use handler::wm;
 
