@@ -147,18 +147,22 @@ pub fn retile(conn: &impl Connection, screen: &Screen, state: &mut WMState) {
         _ => {
             let master = state.windows()[0];
             let slaves = &state.windows()[1..];
-            let slave_h = h / slaves.len() as u32;
-
+	    let n = slaves.len() as u32;
+	    let base_h = h / n;
+	    let remainder = h % n;
+	    
             configure(conn, master, 0, 0, w / 2, h);
-            for (i, &win) in slaves.iter().enumerate() {
-                let y = (i as u32 * slave_h) as i32;
-                let win_h = if i == slaves.len() - 1 {
-                    h - (i as u32 * slave_h)
-                } else {
-                    slave_h
-                };
-                configure(conn, win, (w / 2) as i32, y, w / 2, win_h);
-            }
+
+	    for (i, &win) in slaves.iter().enumerate() {
+		let i = i as u32;
+
+		let extra = if i < remainder { 1 } else { 0 };
+		let win_h = base_h + extra;
+
+		let y = (i * base_h + i.min(remainder)) as i32;
+
+		configure(conn, win, (w / 2) as i32, y, w / 2, win_h);
+	    }
         }
     }
     conn.flush().unwrap();

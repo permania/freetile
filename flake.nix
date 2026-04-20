@@ -20,11 +20,16 @@
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
+  pkg-config
+
             cargo
             rustc
             rustfmt
             clippy
             rust-analyzer
+
+            lua52Packages.lua
+            lua52Packages.lua-lsp
           ];
         };
 

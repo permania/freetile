@@ -161,7 +161,6 @@ pub fn event_loop(
                             }
                             WMAction::TagSwitch(idx) => {
                                 switch_workspace(&conn, screen, wm_state, idx);
-				dbg!(wm_state.active);
                             }
                             WMAction::TagWindowSwitch(idx) => {
                                 if let &Some(win) = wm_state.focused() {
