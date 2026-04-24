@@ -1,8 +1,10 @@
+use std::process::Command;
+
 use x11rb::{
     connection::Connection,
     protocol::xproto::{
-        ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, EventMask, InputFocus,
-        Screen, StackMode, Window,
+        ChangeWindowAttributesAux, ClientMessageEvent, ConfigureWindowAux, ConnectionExt,
+        EventMask, InputFocus, Screen, StackMode, Window,
     },
     rust_connection::RustConnection,
 };
@@ -15,6 +17,13 @@ type WindowSet = Vec<Window>;
 pub struct Tag {
     windows: WindowSet,
     focused: Option<Window>,
+}
+
+pub struct WM<'a> {
+    pub conn: &'a RustConnection,
+    pub screen: Screen,
+    pub state: WMState,
+    pub keybinds: Vec<keys::KeyBind>,
 }
 
 pub struct WMState {
@@ -44,8 +53,8 @@ impl WMState {
         &mut self.tags[self.active].windows
     }
 
-    pub fn focused(&self) -> &Option<u32> {
-        &self.tags[self.active].focused
+    pub fn focused(&self) -> Option<u32> {
+        self.tags[self.active].focused
     }
 
     pub fn set_focused(&mut self, set: Option<u32>) -> () {
@@ -63,7 +72,7 @@ impl Tag {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WMAction {
     Spawn(String, Vec<String>),
     TagSwitch(usize),
@@ -75,32 +84,134 @@ pub enum WMAction {
     SwapPrevious,
 }
 
-pub fn run() {
-    let (mut wm_state, conn, screen, keybinds) = setup_wm();
-    event_loop(&conn, &screen, &mut wm_state, keybinds);
+impl WMAction {
+    pub fn execute(&self, wm: &mut WM) {
+        match self {
+            WMAction::Spawn(cmd, args) => {
+                Command::new(cmd).args(args).spawn().unwrap();
+            }
+            WMAction::Kill => {
+                if let Some(win) = wm.state.focused() {
+                    if wm.state.windows().contains(&win) {
+                        // send WM_DELETE_WINDOW message
+                        let wm_protocols = wm
+                            .conn
+                            .intern_atom(false, b"WM_PROTOCOLS")
+                            .unwrap()
+                            .reply()
+                            .unwrap()
+                            .atom;
+                        let wm_delete = wm
+                            .conn
+                            .intern_atom(false, b"WM_DELETE_WINDOW")
+                            .unwrap()
+                            .reply()
+                            .unwrap()
+                            .atom;
+
+                        let data = [wm_delete, 0, 0, 0, 0];
+                        wm.conn
+                            .send_event(
+                                false,
+                                win,
+                                EventMask::NO_EVENT,
+                                ClientMessageEvent::new(32, win, wm_protocols, data),
+                            )
+                            .unwrap();
+                        wm.conn.flush().unwrap();
+                    }
+                }
+            }
+            WMAction::FocusNext => {
+                if let Some(idx) = focused_index(&wm.state) {
+                    let windows = wm.state.windows();
+                    let next = windows[wrap_next(idx, windows.len())];
+                    focus_and_warp(wm, next);
+                }
+            }
+            WMAction::FocusPrevious => {
+                if let Some(idx) = focused_index(&wm.state) {
+                    let windows = wm.state.windows();
+                    let next = windows[wrap_prev(idx, windows.len())];
+                    focus_and_warp(wm, next);
+                }
+            }
+            WMAction::SwapNext => {
+                let win = wm.state.focused();
+                let idx = focused_index(&wm.state);
+
+                if let (Some(win), Some(idx)) = (win, idx) {
+                    let windows = wm.state.windows();
+                    let next_idx = wrap_next(idx, windows.len());
+
+                    wm.state.windows_mut().swap(idx, next_idx);
+                    retile(wm);
+                    focus_and_warp(wm, win);
+                }
+            }
+            WMAction::SwapPrevious => {
+                let win = wm.state.focused();
+                let idx = focused_index(&wm.state);
+
+                if let (Some(win), Some(idx)) = (win, idx) {
+                    let windows = wm.state.windows();
+                    let next_idx = wrap_prev(idx, windows.len());
+
+                    wm.state.windows_mut().swap(idx, next_idx);
+                    retile(wm);
+                    focus_and_warp(wm, win);
+                }
+            }
+            WMAction::TagSwitch(idx) => {
+                switch_workspace(wm, idx);
+            }
+            WMAction::TagWindowSwitch(idx) => {
+                if let Some(win) = wm.state.focused() {
+                    if wm.state.windows().contains(&win) {
+                        wm.state.set_focused(wm.state.windows().last().copied());
+                        wm.state.windows_mut().retain(|&w| w != win);
+                        wm.conn
+                            .clear_area(false, wm.screen.root, 0, 0, 0, 0)
+                            .unwrap();
+
+                        wm.state.tags[*idx].windows_mut().push(win);
+
+                        switch_workspace(wm, idx);
+                    }
+                }
+            }
+        }
+    }
 }
 
-fn setup_wm() -> (WMState, RustConnection, Screen, Vec<keys::KeyBind>) {
-    let mut wm_state = WMState::new();
+pub fn run() {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
+    let mut wm = setup_wm((&conn, screen_num));
+    // let mut wm = WM {
+    //     conn: &conn,
+    //     screen: screen,
+    //     state: wm_state,
+    //     keybinds: keybinds,
+    // };
+    event_loop(&mut wm);
+}
+
+fn setup_wm<'a>(args: (&'a RustConnection, usize)) -> WM<'a> {
+    let wm_state = WMState::new();
+    let (conn, screen_num) = args;
     let keybinds = keys::register_keybinds();
+    let setup = conn.setup();
 
-    let screen = {
-        let setup = conn.setup();
-        let screen = setup.roots[screen_num].clone();
-
-        screen
+    let mut wm = WM {
+        conn: conn,
+        screen: setup.roots[screen_num].clone(),
+        state: wm_state,
+        keybinds,
     };
 
-    let keybinds = keys::register_keybinds();
-    let (first_keycode, max_keycode, screen) = {
-        let setup = conn.setup();
-        keys::grab_keys(&conn, &keybinds, &setup, &setup.roots[screen_num]);
-        (
-            setup.min_keycode,
-            setup.max_keycode,
-            setup.roots[screen_num].clone(),
-        )
+    let (first_keycode, max_keycode) = {
+        keys::grab_keys(&mut wm);
+        (setup.min_keycode, setup.max_keycode)
     };
 
     let kb_map = conn
@@ -109,13 +220,13 @@ fn setup_wm() -> (WMState, RustConnection, Screen, Vec<keys::KeyBind>) {
         .reply()
         .unwrap();
 
-    wm_state.first_keycode = first_keycode;
-    wm_state.keysyms = kb_map.keysyms;
-    wm_state.syms_per_keycode = kb_map.keysyms_per_keycode;
+    wm.state.first_keycode = first_keycode;
+    wm.state.keysyms = kb_map.keysyms;
+    wm.state.syms_per_keycode = kb_map.keysyms_per_keycode;
 
     // Redirect events to the wm
     conn.change_window_attributes(
-        screen.root,
+        wm.screen.root,
         &ChangeWindowAttributesAux::new()
             .event_mask(EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY),
     )
@@ -125,144 +236,164 @@ fn setup_wm() -> (WMState, RustConnection, Screen, Vec<keys::KeyBind>) {
 
     // Black root window
     conn.change_window_attributes(
-        screen.root,
-        &ChangeWindowAttributesAux::new().background_pixel(screen.black_pixel),
+        wm.screen.root,
+        &ChangeWindowAttributesAux::new().background_pixel(wm.screen.black_pixel),
     )
     .unwrap();
 
     conn.flush().unwrap();
 
-    (wm_state, conn, screen.clone(), keybinds)
+    wm
 }
 
-pub fn retile(conn: &impl Connection, screen: &Screen, state: &mut WMState) {
-    let w = screen.width_in_pixels as u32;
-    let h = screen.height_in_pixels as u32;
+pub fn retile(wm: &mut WM) {
+    let w = wm.screen.width_in_pixels as u32;
+    let h = wm.screen.height_in_pixels as u32;
 
-    match state.windows().len() {
+    match wm.state.windows().len() {
         0 => {}
         1 => {
-            configure(conn, state.windows()[0], 0, 0, w, h);
+            configure(wm, wm.state.windows()[0], 0, 0, w, h);
         }
         _ => {
-            let master = state.windows()[0];
-            let slaves = &state.windows()[1..];
-	    let n = slaves.len() as u32;
-	    let base_h = h / n;
-	    let remainder = h % n;
-	    
-            configure(conn, master, 0, 0, w / 2, h);
+            let windows = wm.state.windows().to_vec();
 
-	    for (i, &win) in slaves.iter().enumerate() {
-		let i = i as u32;
+            let master = windows[0];
+            let slaves = &windows[1..];
+            let n = slaves.len() as u32;
+            let base_h = h / n;
+            let remainder = h % n;
 
-		let extra = if i < remainder { 1 } else { 0 };
-		let win_h = base_h + extra;
+            configure(wm, master, 0, 0, w / 2, h);
 
-		let y = (i * base_h + i.min(remainder)) as i32;
+            for (i, &win) in windows[1..].iter().enumerate() {
+                let i = i as u32;
 
-		configure(conn, win, (w / 2) as i32, y, w / 2, win_h);
-	    }
+                let extra = if i < remainder { 1 } else { 0 };
+                let win_h = base_h + extra;
+
+                let y = (i * base_h + i.min(remainder)) as i32;
+
+                configure(wm, win, (w / 2) as i32, y, w / 2, win_h);
+            }
         }
     }
-    conn.flush().unwrap();
+    wm.conn.flush().unwrap();
 }
 
-fn configure(conn: &impl Connection, window: Window, x: i32, y: i32, w: u32, h: u32) {
+fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
     let border_width = 3u32;
 
-    conn.change_window_attributes(
-        window,
-        &ChangeWindowAttributesAux::new().border_pixel(0xff444444),
-    )
-    .unwrap();
-
-    conn.configure_window(
-        window,
-        &ConfigureWindowAux::new()
-            .x(x)
-            .y(y)
-            .width(w - border_width * 2)
-            .height(h - border_width * 2)
-            .border_width(border_width),
-    )
-    .unwrap();
-}
-
-pub fn focus_and_warp(
-    conn: &impl Connection,
-    screen: &Screen,
-    window: Window,
-    state: &mut WMState,
-) {
-    focus_window(conn, window, state);
-    warp_to_window(conn, screen, window);
-
-    conn.flush().unwrap();
-}
-
-pub fn focus_window(conn: &impl Connection, window: Window, state: &mut WMState) {
-    if let &Some(prev) = state.focused() {
-        conn.change_window_attributes(
-            prev,
+    wm.conn
+        .change_window_attributes(
+            window,
             &ChangeWindowAttributesAux::new().border_pixel(0xff444444),
         )
         .unwrap();
-    }
 
-    conn.change_window_attributes(
-        window,
-        &ChangeWindowAttributesAux::new().border_pixel(0xff8aadf4),
-    )
-    .unwrap();
-
-    conn.configure_window(
-        window,
-        &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
-    )
-    .unwrap();
-    conn.set_input_focus(InputFocus::PARENT, window, x11rb::CURRENT_TIME)
+    wm.conn
+        .configure_window(
+            window,
+            &ConfigureWindowAux::new()
+                .x(x)
+                .y(y)
+                .width(w - border_width * 2)
+                .height(h - border_width * 2)
+                .border_width(border_width),
+        )
         .unwrap();
-
-    state.set_focused(Some(window));
-
-    conn.flush().unwrap();
 }
 
-fn warp_to_window(conn: &impl Connection, screen: &Screen, window: Window) {
-    let geom = conn.get_geometry(window).unwrap().reply().unwrap();
+pub fn focus_and_warp(wm: &mut WM, window: Window) {
+    focus_window(wm, window);
+    warp_to_window(wm, window);
+
+    wm.conn.flush().unwrap();
+}
+
+pub fn focus_window(wm: &mut WM, window: Window) {
+    if let Some(prev) = wm.state.focused() {
+        wm.conn
+            .change_window_attributes(
+                prev,
+                &ChangeWindowAttributesAux::new().border_pixel(0xff444444),
+            )
+            .unwrap();
+    }
+
+    wm.conn
+        .change_window_attributes(
+            window,
+            &ChangeWindowAttributesAux::new().border_pixel(0xff8aadf4),
+        )
+        .unwrap();
+
+    wm.conn
+        .configure_window(
+            window,
+            &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
+        )
+        .unwrap();
+
+    wm.conn
+        .set_input_focus(InputFocus::PARENT, window, x11rb::CURRENT_TIME)
+        .unwrap();
+
+    wm.state.set_focused(Some(window));
+
+    wm.conn.flush().unwrap();
+}
+
+fn warp_to_window(wm: &mut WM, window: Window) {
+    let geom = wm.conn.get_geometry(window).unwrap().reply().unwrap();
     let cx = geom.x as i16 + (geom.width / 2) as i16;
     let cy = geom.y as i16 + (geom.height / 2) as i16;
 
-    conn.warp_pointer(x11rb::NONE, screen.root, 0, 0, 0, 0, cx, cy)
+    wm.conn
+        .warp_pointer(x11rb::NONE, wm.screen.root, 0, 0, 0, 0, cx, cy)
         .unwrap();
-    conn.flush().unwrap();
+    wm.conn.flush().unwrap();
 }
 
-pub fn switch_workspace(conn: &impl Connection, screen: &Screen, state: &mut WMState, idx: &usize) {
-    if *idx == state.active {
+pub fn switch_workspace(wm: &mut WM, idx: &usize) {
+    if *idx == wm.state.active {
         return;
     }
 
-    for &win in state.windows() {
-        conn.unmap_window(win).unwrap();
+    for &win in wm.state.windows() {
+        wm.conn.unmap_window(win).unwrap();
     }
 
-    state.active = *idx;
-    if state.focused().is_none() {
-        state.set_focused(state.windows().last().copied());
+    wm.state.active = *idx;
+    if wm.state.focused().is_none() {
+        wm.state.set_focused(wm.state.windows().last().copied());
     }
 
-    for &win in state.windows() {
-        conn.map_window(win).unwrap();
+    for &win in wm.state.windows() {
+        wm.conn.map_window(win).unwrap();
     }
 
-    retile(conn, screen, state);
+    retile(wm);
 
-    if let &Some(win) = state.focused() {
-        focus_and_warp(conn, screen, win, state);
+    if let Some(win) = wm.state.focused() {
+        focus_and_warp(wm, win);
     }
 
-    conn.clear_area(false, screen.root, 0, 0, 0, 0).unwrap();
-    conn.flush().unwrap();
+    wm.conn
+        .clear_area(false, wm.screen.root, 0, 0, 0, 0)
+        .unwrap();
+    wm.conn.flush().unwrap();
+}
+
+fn focused_index(wm: &WMState) -> Option<usize> {
+    let win = wm.focused()?;
+    wm.windows().iter().position(|&w| w == win)
+}
+
+fn wrap_next(i: usize, len: usize) -> usize {
+    (i + 1) % len
+}
+
+fn wrap_prev(i: usize, len: usize) -> usize {
+    (i + len - 1) % len
 }
