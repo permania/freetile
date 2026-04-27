@@ -81,6 +81,7 @@ name = "freetile"
 version = "0.1.0"
 dependencies = [
  "bitflags",
+ "libc",
  "rhai",
  "x11-keysyms",
  "x11rb",

@@ -57,12 +57,13 @@ impl WMState {
         self.tags[self.active].focused
     }
 
-    pub fn set_focused(&mut self, set: Option<u32>) -> () {
+    pub fn set_focused(&mut self, set: Option<u32>) {
         self.tags[self.active].focused = set;
     }
 }
 
 impl Tag {
+    #[allow(dead_code)]
     pub fn windows(&self) -> &WindowSet {
         &self.windows
     }
@@ -88,38 +89,39 @@ impl WMAction {
     pub fn execute(&self, wm: &mut WM) {
         match self {
             WMAction::Spawn(cmd, args) => {
+		#[allow(clippy::zombie_processes)]
                 Command::new(cmd).args(args).spawn().unwrap();
             }
             WMAction::Kill => {
-                if let Some(win) = wm.state.focused() {
-                    if wm.state.windows().contains(&win) {
-                        // send WM_DELETE_WINDOW message
-                        let wm_protocols = wm
-                            .conn
-                            .intern_atom(false, b"WM_PROTOCOLS")
-                            .unwrap()
-                            .reply()
-                            .unwrap()
-                            .atom;
-                        let wm_delete = wm
-                            .conn
-                            .intern_atom(false, b"WM_DELETE_WINDOW")
-                            .unwrap()
-                            .reply()
-                            .unwrap()
-                            .atom;
+                if let Some(win) = wm.state.focused()
+                    && wm.state.windows().contains(&win)
+                {
+                    // send WM_DELETE_WINDOW message
+                    let wm_protocols = wm
+                        .conn
+                        .intern_atom(false, b"WM_PROTOCOLS")
+                        .unwrap()
+                        .reply()
+                        .unwrap()
+                        .atom;
+                    let wm_delete = wm
+                        .conn
+                        .intern_atom(false, b"WM_DELETE_WINDOW")
+                        .unwrap()
+                        .reply()
+                        .unwrap()
+                        .atom;
 
-                        let data = [wm_delete, 0, 0, 0, 0];
-                        wm.conn
-                            .send_event(
-                                false,
-                                win,
-                                EventMask::NO_EVENT,
-                                ClientMessageEvent::new(32, win, wm_protocols, data),
-                            )
-                            .unwrap();
-                        wm.conn.flush().unwrap();
-                    }
+                    let data = [wm_delete, 0, 0, 0, 0];
+                    wm.conn
+                        .send_event(
+                            false,
+                            win,
+                            EventMask::NO_EVENT,
+                            ClientMessageEvent::new(32, win, wm_protocols, data),
+                        )
+                        .unwrap();
+                    wm.conn.flush().unwrap();
                 }
             }
             WMAction::FocusNext => {
@@ -166,18 +168,18 @@ impl WMAction {
                 switch_workspace(wm, idx);
             }
             WMAction::TagWindowSwitch(idx) => {
-                if let Some(win) = wm.state.focused() {
-                    if wm.state.windows().contains(&win) {
-                        wm.state.set_focused(wm.state.windows().last().copied());
-                        wm.state.windows_mut().retain(|&w| w != win);
-                        wm.conn
-                            .clear_area(false, wm.screen.root, 0, 0, 0, 0)
-                            .unwrap();
+                if let Some(win) = wm.state.focused()
+                    && wm.state.windows().contains(&win)
+                {
+                    wm.state.set_focused(wm.state.windows().last().copied());
+                    wm.state.windows_mut().retain(|&w| w != win);
+                    wm.conn
+                        .clear_area(false, wm.screen.root, 0, 0, 0, 0)
+                        .unwrap();
 
-                        wm.state.tags[*idx].windows_mut().push(win);
+                    wm.state.tags[*idx].windows_mut().push(win);
 
-                        switch_workspace(wm, idx);
-                    }
+                    switch_workspace(wm, idx);
                 }
             }
         }
@@ -186,18 +188,21 @@ impl WMAction {
 
 pub fn run() {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
-    let mut wm = setup_wm((&conn, screen_num));
+    let mut wm = setup_wm(&conn, screen_num);
+
+    unsafe { libc::signal(libc::SIGCHLD, libc::SIG_IGN); }
+
     event_loop(&mut wm);
 }
 
-fn setup_wm<'a>(args: (&'a RustConnection, usize)) -> WM<'a> {
+fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let wm_state = WMState::new();
-    let (conn, screen_num) = args;
+    let (conn, screen_num) = (conn, screen_num);
     let keybinds = keys::register_keybinds();
     let setup = conn.setup();
 
     let mut wm = WM {
-        conn: conn,
+        conn,
         screen: setup.roots[screen_num].clone(),
         state: wm_state,
         keybinds,
@@ -340,8 +345,8 @@ pub fn focus_window(wm: &mut WM, window: Window) {
 
 fn warp_to_window(wm: &mut WM, window: Window) {
     let geom = wm.conn.get_geometry(window).unwrap().reply().unwrap();
-    let cx = geom.x as i16 + (geom.width / 2) as i16;
-    let cy = geom.y as i16 + (geom.height / 2) as i16;
+    let cx = geom.x + (geom.width / 2) as i16;
+    let cy = geom.y + (geom.height / 2) as i16;
 
     wm.conn
         .warp_pointer(x11rb::NONE, wm.screen.root, 0, 0, 0, 0, cx, cy)

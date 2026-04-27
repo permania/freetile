@@ -3,17 +3,14 @@ use x11rb::{
     protocol::{
         Event,
         xproto::{
-            ChangeWindowAttributesAux, ConnectionExt, EventMask, NotifyDetail, NotifyMode, Screen,
+            ChangeWindowAttributesAux, ConnectionExt, EventMask, NotifyDetail, NotifyMode,
         },
     },
 };
 
 use crate::handler::keys::event_to_keyresult;
 
-use super::{
-    keys::KeyBind,
-    wm::{WM, WMState, focus_and_warp, focus_window, retile},
-};
+use super::wm::{WM, focus_and_warp, focus_window, retile};
 
 pub fn event_loop(
     wm: &mut WM,

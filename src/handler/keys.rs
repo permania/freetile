@@ -3,11 +3,11 @@ use std::ops::Deref;
 use x11rb::{
     connection::Connection,
     protocol::xproto::{
-        ConnectionExt, GrabMode, KeyButMask, KeyPressEvent, ModMask, Screen, Setup,
+        ConnectionExt, GrabMode, KeyButMask, KeyPressEvent, ModMask
     },
 };
 
-use super::wm::{WM, WMAction, WMState};
+use super::wm::{WM, WMAction};
 
 #[derive(Debug, Clone)]
 pub struct KeyResult {
@@ -59,7 +59,7 @@ macro_rules! tag_keybind_window {
 }
 
 fn normalize_keysym(sym: u32) -> u32 {
-    if sym >= 0x41 && sym <= 0x5A {
+    if (0x41..=0x5A).contains(&sym) {
         sym + 32
     } else {
         sym
@@ -190,7 +190,7 @@ pub fn grab_keys(wm: &mut WM) {
     }
 }
 
-pub fn keysym_from_keycode(idx: usize, syms: &Vec<u32>) -> u32 {
+pub fn keysym_from_keycode(idx: usize, syms: &[u32]) -> u32 {
     syms[idx]
 }
 

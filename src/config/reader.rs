@@ -2,7 +2,8 @@ use std::fs::read_to_string;
 
 use rhai::{Dynamic, Engine};
 
-pub fn register_rhai() -> Result<(), Box<dyn std::error::Error>> {
+#[allow(dead_code)]
+pub fn load_config() -> Result<(), Box<dyn std::error::Error>> {
     let engine = Engine::new();
     let file = read_to_string("ftrc.rhai")?;
 
