@@ -11,14 +11,14 @@ use super::wm::{WM, WMAction, WMState};
 
 #[derive(Debug, Clone)]
 pub struct KeyResult {
-    pub sym: u32,
     pub mods: KeyButMask,
+    pub sym: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct KeyBind {
-    res: KeyResult,
     pub action: WMAction,
+    res: KeyResult,
 }
 
 impl Deref for KeyBind {

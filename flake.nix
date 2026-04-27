@@ -27,9 +27,6 @@
             rustfmt
             clippy
             rust-analyzer
-
-            lua52Packages.lua
-            lua52Packages.lua-lsp
           ];
         };
 

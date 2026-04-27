@@ -187,12 +187,6 @@ impl WMAction {
 pub fn run() {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
     let mut wm = setup_wm((&conn, screen_num));
-    // let mut wm = WM {
-    //     conn: &conn,
-    //     screen: screen,
-    //     state: wm_state,
-    //     keybinds: keybinds,
-    // };
     event_loop(&mut wm);
 }
 
