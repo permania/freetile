@@ -206,3 +206,116 @@ mod chords {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use x11rb::protocol::xproto::{KeyButMask, ModMask};
+
+    // --- normalize_keysym ---
+
+    #[test]
+    fn normalize_uppercase_a_to_lowercase() {
+        assert_eq!(normalize_keysym(0x41), 0x61); // A -> a
+    }
+
+    #[test]
+    fn normalize_uppercase_z_to_lowercase() {
+        assert_eq!(normalize_keysym(0x5A), 0x7A); // Z -> z
+    }
+
+    #[test]
+    fn normalize_lowercase_is_unchanged() {
+        assert_eq!(normalize_keysym(0x61), 0x61); // a stays a
+        assert_eq!(normalize_keysym(0x7A), 0x7A); // z stays z
+    }
+
+    #[test]
+    fn normalize_non_alpha_is_unchanged() {
+        assert_eq!(normalize_keysym(0x30), 0x30); // '0'
+        assert_eq!(normalize_keysym(0xFF1B), 0xFF1B); // XK_Escape
+        assert_eq!(normalize_keysym(0x20), 0x20); // space
+    }
+
+    #[test]
+    fn normalize_boundary_below_a_is_unchanged() {
+        assert_eq!(normalize_keysym(0x40), 0x40); // '@', just below 'A'
+    }
+
+    #[test]
+    fn normalize_boundary_above_z_is_unchanged() {
+        assert_eq!(normalize_keysym(0x5B), 0x5B); // '[', just above 'Z'
+    }
+
+    // --- KeyBind::matches ---
+
+    fn make_bind(sym: u32, mods: u16) -> KeyBind {
+        KeyBind {
+            res: KeyResult {
+                sym,
+                mods: KeyButMask::from(mods),
+            },
+            action: WMAction::Kill,
+        }
+    }
+
+    fn make_result(sym: u32, mods: u16) -> KeyResult {
+        KeyResult {
+            sym,
+            mods: KeyButMask::from(mods),
+        }
+    }
+
+    #[test]
+    fn keybind_matches_exact() {
+        let bind = make_bind(0x61, u16::from(ModMask::M4));
+        let res = make_result(0x61, u16::from(ModMask::M4));
+        assert!(bind.matches(&res));
+    }
+
+    #[test]
+    fn keybind_matches_case_insensitive_sym() {
+        // bind registered with lowercase, event fires uppercase (or vice versa)
+        let bind = make_bind(0x61, u16::from(ModMask::M4)); // 'a'
+        let res = make_result(0x41, u16::from(ModMask::M4)); // 'A'
+        assert!(bind.matches(&res));
+    }
+
+    #[test]
+    fn keybind_no_match_wrong_sym() {
+        let bind = make_bind(0x61, u16::from(ModMask::M4));
+        let res = make_result(0x62, u16::from(ModMask::M4)); // 'b'
+        assert!(!bind.matches(&res));
+    }
+
+    #[test]
+    fn keybind_no_match_wrong_mods() {
+        let bind = make_bind(0x61, u16::from(ModMask::M4));
+        let res = make_result(0x61, u16::from(ModMask::M4) | u16::from(ModMask::SHIFT));
+        assert!(!bind.matches(&res));
+    }
+
+    #[test]
+    fn keybind_no_match_no_mods() {
+        let bind = make_bind(0x61, u16::from(ModMask::M4));
+        let res = make_result(0x61, 0);
+        assert!(!bind.matches(&res));
+    }
+
+    #[test]
+    fn keybind_matches_with_shift() {
+        let mods = u16::from(ModMask::M4) | u16::from(ModMask::SHIFT);
+        let bind = make_bind(0x6A, mods); // Mod+Shift+j
+        let res = make_result(0x6A, mods);
+        assert!(bind.matches(&res));
+    }
+
+    // --- keysym_from_keycode ---
+
+    #[test]
+    fn keysym_from_keycode_returns_correct_element() {
+        let syms = vec![0x61u32, 0x62, 0x63, 0x64];
+        assert_eq!(keysym_from_keycode(0, &syms), 0x61);
+        assert_eq!(keysym_from_keycode(2, &syms), 0x63);
+    }
+}

@@ -392,3 +392,177 @@ fn wrap_next(i: usize, len: usize) -> usize {
 fn wrap_prev(i: usize, len: usize) -> usize {
     (i + len - 1) % len
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- wrap_next ---
+
+    #[test]
+    fn wrap_next_middle() {
+        assert_eq!(wrap_next(2, 5), 3);
+    }
+
+    #[test]
+    fn wrap_next_last_wraps_to_zero() {
+        assert_eq!(wrap_next(4, 5), 0);
+    }
+
+    #[test]
+    fn wrap_next_single_element() {
+        assert_eq!(wrap_next(0, 1), 0);
+    }
+
+    #[test]
+    fn wrap_next_two_elements() {
+        assert_eq!(wrap_next(0, 2), 1);
+        assert_eq!(wrap_next(1, 2), 0);
+    }
+
+    // --- wrap_prev ---
+
+    #[test]
+    fn wrap_prev_middle() {
+        assert_eq!(wrap_prev(3, 5), 2);
+    }
+
+    #[test]
+    fn wrap_prev_first_wraps_to_last() {
+        assert_eq!(wrap_prev(0, 5), 4);
+    }
+
+    #[test]
+    fn wrap_prev_single_element() {
+        assert_eq!(wrap_prev(0, 1), 0);
+    }
+
+    #[test]
+    fn wrap_prev_two_elements() {
+        assert_eq!(wrap_prev(0, 2), 1);
+        assert_eq!(wrap_prev(1, 2), 0);
+    }
+
+    #[test]
+    fn wrap_next_then_prev_is_identity() {
+        for len in 1..=8 {
+            for i in 0..len {
+                assert_eq!(wrap_prev(wrap_next(i, len), len), i);
+            }
+        }
+    }
+
+    #[test]
+    fn wrap_prev_then_next_is_identity() {
+        for len in 1..=8 {
+            for i in 0..len {
+                assert_eq!(wrap_next(wrap_prev(i, len), len), i);
+            }
+        }
+    }
+
+    // --- WMState ---
+
+    fn make_state_with_windows(wins: &[u32]) -> WMState {
+        let mut s = WMState::new();
+        for &w in wins {
+            s.windows_mut().push(w);
+        }
+        s
+    }
+
+    #[test]
+    fn wmstate_new_has_no_windows() {
+        let s = WMState::new();
+        assert!(s.windows().is_empty());
+    }
+
+    #[test]
+    fn wmstate_new_focused_is_none() {
+        let s = WMState::new();
+        assert_eq!(s.focused(), None);
+    }
+
+    #[test]
+    fn wmstate_set_focused_roundtrips() {
+        let mut s = WMState::new();
+        s.windows_mut().push(42);
+        s.set_focused(Some(42));
+        assert_eq!(s.focused(), Some(42));
+    }
+
+    #[test]
+    fn wmstate_set_focused_none() {
+        let mut s = WMState::new();
+        s.set_focused(Some(1));
+        s.set_focused(None);
+        assert_eq!(s.focused(), None);
+    }
+
+    #[test]
+    fn wmstate_windows_mut_push_and_read() {
+        let mut s = WMState::new();
+        s.windows_mut().push(10);
+        s.windows_mut().push(20);
+        assert_eq!(s.windows(), &[10, 20]);
+    }
+
+    #[test]
+    fn wmstate_windows_mut_retain() {
+        let mut s = make_state_with_windows(&[1, 2, 3]);
+        s.windows_mut().retain(|&w| w != 2);
+        assert_eq!(s.windows(), &[1, 3]);
+    }
+
+    #[test]
+    fn wmstate_active_default_is_zero() {
+        let s = WMState::new();
+        assert_eq!(s.active, 0);
+    }
+
+    #[test]
+    fn wmstate_windows_are_per_tag() {
+        let mut s = WMState::new();
+        s.windows_mut().push(100);   // tag 0
+        s.active = 1;
+        assert!(s.windows().is_empty()); // tag 1 is empty
+        s.windows_mut().push(200);
+        s.active = 0;
+        assert_eq!(s.windows(), &[100]); // tag 0 still just has 100
+    }
+
+    #[test]
+    fn wmstate_focused_is_per_tag() {
+        let mut s = WMState::new();
+        s.set_focused(Some(1));
+        s.active = 1;
+        assert_eq!(s.focused(), None); // different tag, no focus yet
+        s.set_focused(Some(2));
+        s.active = 0;
+        assert_eq!(s.focused(), Some(1)); // tag 0 focus unchanged
+    }
+
+    // --- focused_index (via wrap logic) ---
+    // focused_index is private but its semantics are tested indirectly
+    // through wrap_next/wrap_prev above. Document the contract here:
+
+    #[test]
+    fn wrap_next_covers_full_cycle() {
+        let len = 6;
+        let mut i = 0;
+        for _ in 0..len {
+            i = wrap_next(i, len);
+        }
+        assert_eq!(i, 0, "should complete a full cycle back to start");
+    }
+
+    #[test]
+    fn wrap_prev_covers_full_cycle() {
+        let len = 6;
+        let mut i = 0;
+        for _ in 0..len {
+            i = wrap_prev(i, len);
+        }
+        assert_eq!(i, 0, "should complete a full cycle back to start");
+    }
+}
