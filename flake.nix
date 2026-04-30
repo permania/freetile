@@ -20,7 +20,7 @@
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-  pkg-config
+            pkg-config
 
             cargo
             rustc

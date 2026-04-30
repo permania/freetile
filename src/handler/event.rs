@@ -2,9 +2,7 @@ use x11rb::{
     connection::Connection,
     protocol::{
         Event,
-        xproto::{
-            ChangeWindowAttributesAux, ConnectionExt, EventMask, NotifyDetail, NotifyMode,
-        },
+        xproto::{ChangeWindowAttributesAux, ConnectionExt, EventMask, NotifyDetail, NotifyMode},
     },
 };
 
@@ -12,21 +10,20 @@ use crate::handler::keys::event_to_keyresult;
 
 use super::wm::{WM, focus_and_warp, focus_window, retile};
 
-pub fn event_loop(
-    wm: &mut WM,
-) {
+pub fn event_loop(wm: &mut WM) {
     loop {
         match wm.conn.wait_for_event().unwrap() {
             Event::Error(e) => eprintln!("error: {:?}", e),
             Event::MapRequest(e) => {
                 let window = e.window;
                 wm.state.windows_mut().push(window);
-                wm.conn.change_window_attributes(
-                    window,
-                    &ChangeWindowAttributesAux::new().event_mask(EventMask::ENTER_WINDOW),
-                )
-                .unwrap();
-		wm.conn.map_window(window).unwrap();
+                wm.conn
+                    .change_window_attributes(
+                        window,
+                        &ChangeWindowAttributesAux::new().event_mask(EventMask::ENTER_WINDOW),
+                    )
+                    .unwrap();
+                wm.conn.map_window(window).unwrap();
                 retile(wm);
 
                 focus_and_warp(wm, window);
@@ -39,7 +36,9 @@ pub fn event_loop(
                     wm.state.set_focused(wm.state.windows().last().copied());
                 }
                 retile(wm);
-                wm.conn.clear_area(false, wm.screen.root, 0, 0, 0, 0).unwrap();
+                wm.conn
+                    .clear_area(false, wm.screen.root, 0, 0, 0, 0)
+                    .unwrap();
                 wm.conn.flush().unwrap();
             }
             Event::DestroyNotify(e) => {
@@ -47,7 +46,7 @@ pub fn event_loop(
             }
             Event::EnterNotify(e) => {
                 if e.mode == NotifyMode::NORMAL && e.detail != NotifyDetail::INFERIOR {
-                    focus_window(wm, e.event );
+                    focus_window(wm, e.event);
                 }
             }
             Event::KeyPress(e) => {

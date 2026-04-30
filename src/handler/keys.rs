@@ -2,9 +2,7 @@ use std::ops::Deref;
 
 use x11rb::{
     connection::Connection,
-    protocol::xproto::{
-        ConnectionExt, GrabMode, KeyButMask, KeyPressEvent, ModMask
-    },
+    protocol::xproto::{ConnectionExt, GrabMode, KeyButMask, KeyPressEvent, ModMask},
 };
 
 use super::wm::{WM, WMAction};
@@ -160,7 +158,8 @@ pub fn grab_keys(wm: &mut WM) {
     let first_keycode = setup.min_keycode;
     let count = setup.max_keycode - setup.min_keycode + 1;
 
-    let kb_map = wm.conn
+    let kb_map = wm
+        .conn
         .get_keyboard_mapping(first_keycode, count)
         .unwrap()
         .reply()
@@ -173,17 +172,18 @@ pub fn grab_keys(wm: &mut WM) {
         for keycode in first_keycode..=setup.max_keycode {
             let idx = (keycode - first_keycode) as usize * syms_per_keycode as usize;
             if keysyms.get(idx).copied().unwrap_or(0) == sym {
-                wm.conn.grab_key(
-                    true,
-                    wm.screen.root,
-                    u16::from(bind.res.mods).into(),
-                    keycode,
-                    GrabMode::ASYNC,
-                    GrabMode::ASYNC,
-                )
-                .unwrap()
-                .check()
-                .unwrap();
+                wm.conn
+                    .grab_key(
+                        true,
+                        wm.screen.root,
+                        u16::from(bind.res.mods).into(),
+                        keycode,
+                        GrabMode::ASYNC,
+                        GrabMode::ASYNC,
+                    )
+                    .unwrap()
+                    .check()
+                    .unwrap();
                 break;
             }
         }

@@ -89,7 +89,7 @@ impl WMAction {
     pub fn execute(&self, wm: &mut WM) {
         match self {
             WMAction::Spawn(cmd, args) => {
-		#[allow(clippy::zombie_processes)]
+                #[allow(clippy::zombie_processes)]
                 Command::new(cmd).args(args).spawn().unwrap();
             }
             WMAction::Kill => {
@@ -189,15 +189,11 @@ impl WMAction {
 pub fn run() {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
     let mut wm = setup_wm(&conn, screen_num);
-
-    unsafe { libc::signal(libc::SIGCHLD, libc::SIG_IGN); }
-
     event_loop(&mut wm);
 }
 
 fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let wm_state = WMState::new();
-    let (conn, screen_num) = (conn, screen_num);
     let keybinds = keys::register_keybinds();
     let setup = conn.setup();
 
