@@ -4,10 +4,12 @@ use x11rb::{
     connection::Connection,
     protocol::xproto::{
         ChangeWindowAttributesAux, ClientMessageEvent, ConfigureWindowAux, ConnectionExt,
-        EventMask, InputFocus, Screen, StackMode, Window,
+        EventMask, InputFocus, MapState, Screen, StackMode, Window,
     },
     rust_connection::RustConnection,
 };
+
+use crate::config::layout::{Dir, LayoutIntent, Rect, WMSlot};
 
 use super::{event::event_loop, keys};
 
@@ -24,6 +26,7 @@ pub struct WM<'a> {
     pub screen: Screen,
     pub state: WMState,
     pub keybinds: Vec<keys::KeyBind>,
+    pub ignore_unmaps: usize,
 }
 
 pub struct WMState {
@@ -121,47 +124,100 @@ impl WMAction {
                             ClientMessageEvent::new(32, win, wm_protocols, data),
                         )
                         .unwrap();
-                    wm.conn.flush().unwrap();
                 }
             }
             WMAction::FocusNext => {
-                if let Some(idx) = focused_index(&wm.state) {
-                    let windows = wm.state.windows();
-                    let next = windows[wrap_next(idx, windows.len())];
-                    focus_and_warp(wm, next);
+                if let Some(_) = focused_index(&wm.state) {
+                    let windows: Vec<Window> = wm
+                        .state
+                        .windows()
+                        .iter()
+                        .copied()
+                        .filter(|&w| is_mapped(wm, w))
+                        .collect();
+                    if let Some(cur) = windows
+                        .iter()
+                        .position(|&w| w == wm.state.focused().unwrap())
+                    {
+                        let next = windows[wrap_next(cur, windows.len())];
+                        focus_and_warp(wm, next);
+                    }
                 }
             }
             WMAction::FocusPrevious => {
-                if let Some(idx) = focused_index(&wm.state) {
-                    let windows = wm.state.windows();
-                    let next = windows[wrap_prev(idx, windows.len())];
-                    focus_and_warp(wm, next);
+                if let Some(_) = focused_index(&wm.state) {
+                    let windows: Vec<Window> = wm
+                        .state
+                        .windows()
+                        .iter()
+                        .copied()
+                        .filter(|&w| is_mapped(wm, w))
+                        .collect();
+                    if let Some(cur) = windows
+                        .iter()
+                        .position(|&w| w == wm.state.focused().unwrap())
+                    {
+                        let next = windows[wrap_prev(cur, windows.len())];
+                        focus_and_warp(wm, next);
+                    }
                 }
             }
             WMAction::SwapNext => {
-                let win = wm.state.focused();
-                let idx = focused_index(&wm.state);
+                if let Some(win) = wm.state.focused() {
+                    let mapped: Vec<Window> = wm
+                        .state
+                        .windows()
+                        .iter()
+                        .copied()
+                        .filter(|&w| is_mapped(wm, w))
+                        .collect();
+                    if let Some(cur) = mapped.iter().position(|&w| w == win) {
+                        let next = mapped[wrap_next(cur, mapped.len())];
+                        let i = wm.state.windows().iter().position(|&w| w == win).unwrap();
+                        let j = wm.state.windows().iter().position(|&w| w == next).unwrap();
+                        wm.state.windows_mut().swap(i, j);
 
-                if let (Some(win), Some(idx)) = (win, idx) {
-                    let windows = wm.state.windows();
-                    let next_idx = wrap_next(idx, windows.len());
+                        let intent = retile(wm);
+                        wm.ignore_unmaps += intent
+                            .unmapped
+                            .iter()
+                            .filter(|&&w| is_mapped(wm, w))
+                            .count();
+                        map_intent(wm, intent);
 
-                    wm.state.windows_mut().swap(idx, next_idx);
-                    retile(wm);
-                    focus_and_warp(wm, win);
+                        if is_mapped(wm, win) {
+                            focus_and_warp(wm, win);
+                        }
+                    }
                 }
             }
             WMAction::SwapPrevious => {
-                let win = wm.state.focused();
-                let idx = focused_index(&wm.state);
+                if let Some(win) = wm.state.focused() {
+                    let mapped: Vec<Window> = wm
+                        .state
+                        .windows()
+                        .iter()
+                        .copied()
+                        .filter(|&w| is_mapped(wm, w))
+                        .collect();
+                    if let Some(cur) = mapped.iter().position(|&w| w == win) {
+                        let next = mapped[wrap_prev(cur, mapped.len())];
+                        let i = wm.state.windows().iter().position(|&w| w == win).unwrap();
+                        let j = wm.state.windows().iter().position(|&w| w == next).unwrap();
+                        wm.state.windows_mut().swap(i, j);
 
-                if let (Some(win), Some(idx)) = (win, idx) {
-                    let windows = wm.state.windows();
-                    let next_idx = wrap_prev(idx, windows.len());
+                        let intent = retile(wm);
+                        wm.ignore_unmaps += intent
+                            .unmapped
+                            .iter()
+                            .filter(|&&w| is_mapped(wm, w))
+                            .count();
+                        map_intent(wm, intent);
 
-                    wm.state.windows_mut().swap(idx, next_idx);
-                    retile(wm);
-                    focus_and_warp(wm, win);
+                        if is_mapped(wm, win) {
+                            focus_and_warp(wm, win);
+                        }
+                    }
                 }
             }
             WMAction::TagSwitch(idx) => {
@@ -202,6 +258,7 @@ fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
         screen: setup.roots[screen_num].clone(),
         state: wm_state,
         keybinds,
+        ignore_unmaps: 0usize,
     };
 
     let (first_keycode, max_keycode) = {
@@ -241,38 +298,61 @@ fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     wm
 }
 
-pub fn retile(wm: &mut WM) {
-    let w = wm.screen.width_in_pixels as u32;
-    let h = wm.screen.height_in_pixels as u32;
+pub fn retile(wm: &mut WM) -> LayoutIntent {
+    let n = wm.state.windows().len();
+    if n == 0 {
+        return LayoutIntent {
+            mapped: vec![],
+            unmapped: vec![],
+        };
+    }
 
-    match wm.state.windows().len() {
-        0 => {}
-        1 => {
-            configure(wm, wm.state.windows()[0], 0, 0, w, h);
+    let bounds = Rect {
+        x: 0,
+        y: 0,
+        w: wm.screen.width_in_pixels as u32,
+        h: wm.screen.height_in_pixels as u32,
+    };
+
+    let slot = WMSlot::Split {
+        dir: Dir::Horizontal,
+        ratio: 0.5,
+        lhs: Box::new(WMSlot::Window),
+        rhs: Box::new(WMSlot::Split {
+            dir: Dir::Vertical,
+            ratio: 0.5,
+            lhs: Box::new(WMSlot::Window),
+            rhs: Box::new(WMSlot::Drain {
+                dir: Dir::Horizontal,
+                take: Some(2),
+            }),
+        }),
+    };
+
+    let rects = slot.compute(n, bounds, 0);
+    let windows = wm.state.windows().to_vec();
+    let len = windows.len().min(rects.len());
+
+    let mapped: Vec<(Window, Rect)> = (0..len).map(|i| (windows[i], rects[i])).collect();
+    let unmapped = windows[len..].to_vec();
+
+    return LayoutIntent { mapped, unmapped };
+}
+
+pub fn map_intent(wm: &mut WM, intent: LayoutIntent) -> () {
+    for (window, rect) in intent.mapped {
+        if !is_mapped(wm, window) {
+            wm.conn.map_window(window).unwrap();
         }
-        _ => {
-            let windows = wm.state.windows().to_vec();
+        configure(wm, window, rect.x, rect.y, rect.w, rect.h);
+    }
 
-            let master = windows[0];
-            let slaves = &windows[1..];
-            let n = slaves.len() as u32;
-            let base_h = h / n;
-            let remainder = h % n;
-
-            configure(wm, master, 0, 0, w / 2, h);
-
-            for (i, &win) in windows[1..].iter().enumerate() {
-                let i = i as u32;
-
-                let extra = if i < remainder { 1 } else { 0 };
-                let win_h = base_h + extra;
-
-                let y = (i * base_h + i.min(remainder)) as i32;
-
-                configure(wm, win, (w / 2) as i32, y, w / 2, win_h);
-            }
+    for w in intent.unmapped {
+        if is_mapped(wm, w) {
+            wm.conn.unmap_window(w).unwrap();
         }
     }
+
     wm.conn.flush().unwrap();
 }
 
@@ -302,8 +382,6 @@ fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
 pub fn focus_and_warp(wm: &mut WM, window: Window) {
     focus_window(wm, window);
     warp_to_window(wm, window);
-
-    wm.conn.flush().unwrap();
 }
 
 pub fn focus_window(wm: &mut WM, window: Window) {
@@ -335,8 +413,6 @@ pub fn focus_window(wm: &mut WM, window: Window) {
         .unwrap();
 
     wm.state.set_focused(Some(window));
-
-    wm.conn.flush().unwrap();
 }
 
 fn warp_to_window(wm: &mut WM, window: Window) {
@@ -347,7 +423,6 @@ fn warp_to_window(wm: &mut WM, window: Window) {
     wm.conn
         .warp_pointer(x11rb::NONE, wm.screen.root, 0, 0, 0, 0, cx, cy)
         .unwrap();
-    wm.conn.flush().unwrap();
 }
 
 pub fn switch_workspace(wm: &mut WM, idx: &usize) {
@@ -391,6 +466,16 @@ fn wrap_next(i: usize, len: usize) -> usize {
 
 fn wrap_prev(i: usize, len: usize) -> usize {
     (i + len - 1) % len
+}
+
+pub fn is_mapped(wm: &WM, window: Window) -> bool {
+    wm.conn
+        .get_window_attributes(window)
+        .unwrap()
+        .reply()
+        .unwrap()
+        .map_state
+        != MapState::UNMAPPED
 }
 
 #[cfg(test)]
@@ -523,7 +608,7 @@ mod tests {
     #[test]
     fn wmstate_windows_are_per_tag() {
         let mut s = WMState::new();
-        s.windows_mut().push(100);   // tag 0
+        s.windows_mut().push(100); // tag 0
         s.active = 1;
         assert!(s.windows().is_empty()); // tag 1 is empty
         s.windows_mut().push(200);

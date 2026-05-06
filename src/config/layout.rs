@@ -1,3 +1,5 @@
+use x11rb::protocol::xproto::Window;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Dir {
     Horizontal,
@@ -25,15 +27,24 @@ pub enum WMSlot {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
-    x: i32,
-    y: i32,
-    w: u32,
-    h: u32,
+    pub x: i32,
+    pub y: i32,
+    pub w: u32,
+    pub h: u32,
+}
+
+pub struct LayoutIntent {
+    pub mapped: Vec<(Window, Rect)>,
+    pub unmapped: Vec<Window>
 }
 
 impl WMSlot {
     pub fn compute(&self, n: usize, bounds: Rect, gap: u32) -> Vec<Rect> {
         let mut res = Vec::<Rect>::new();
+	if n == 1 {
+	    res.push(bounds);
+	    return res
+	}
 
         match self {
             WMSlot::Split { dir, ratio, lhs, rhs } => {
@@ -82,6 +93,10 @@ impl Rect {
 
     pub fn subdiv(&self, dir: Dir, n: u32) -> Vec<Rect> {
         let mut res = Vec::<Rect>::with_capacity(n as usize);
+
+	if n == 0 {
+	    return res;
+	}
 
         match dir {
             Dir::Horizontal => {

@@ -6,9 +6,9 @@ use x11rb::{
     },
 };
 
-use crate::handler::keys::event_to_keyresult;
+use crate::handler::{keys::event_to_keyresult, wm::map_intent};
 
-use super::wm::{WM, focus_and_warp, focus_window, retile};
+use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
 
 pub fn event_loop(wm: &mut WM) {
     loop {
@@ -16,26 +16,48 @@ pub fn event_loop(wm: &mut WM) {
             Event::Error(e) => eprintln!("error: {:?}", e),
             Event::MapRequest(e) => {
                 let window = e.window;
+
                 wm.state.windows_mut().push(window);
+
                 wm.conn
                     .change_window_attributes(
                         window,
                         &ChangeWindowAttributesAux::new().event_mask(EventMask::ENTER_WINDOW),
                     )
                     .unwrap();
-                wm.conn.map_window(window).unwrap();
-                retile(wm);
 
-                focus_and_warp(wm, window);
+                let prev_focused = wm.state.focused();
+
+                let intent = retile(wm);
+                map_intent(wm, intent);
+
+                if is_mapped(wm, window) {
+                    focus_and_warp(wm, window);
+                } else if let Some(p) = prev_focused {
+                    focus_and_warp(wm, p);
+                }
 
                 wm.conn.flush().unwrap();
             }
             Event::UnmapNotify(e) => {
+                if !wm.state.windows().contains(&e.window) {
+                    continue;
+                }
+
+                if wm.ignore_unmaps > 0 {
+                    eprintln!("ignore unmaps is more than 0: {}", wm.ignore_unmaps);
+                    wm.ignore_unmaps -= 1;
+                    continue;
+                }
+
                 wm.state.windows_mut().retain(|&w| w != e.window);
                 if wm.state.focused() == Some(e.window) {
                     wm.state.set_focused(wm.state.windows().last().copied());
                 }
-                retile(wm);
+
+                let intent = retile(wm);
+                map_intent(wm, intent);
+
                 wm.conn
                     .clear_area(false, wm.screen.root, 0, 0, 0, 0)
                     .unwrap();
@@ -47,6 +69,7 @@ pub fn event_loop(wm: &mut WM) {
             Event::EnterNotify(e) => {
                 if e.mode == NotifyMode::NORMAL && e.detail != NotifyDetail::INFERIOR {
                     focus_window(wm, e.event);
+                    wm.conn.flush().unwrap();
                 }
             }
             Event::KeyPress(e) => {
@@ -58,6 +81,7 @@ pub fn event_loop(wm: &mut WM) {
                         bind.action.execute(wm);
                     }
                 }
+                wm.conn.flush().unwrap();
             }
             e => eprintln!("event: {:?}", e),
         }
