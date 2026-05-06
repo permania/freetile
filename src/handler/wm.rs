@@ -439,11 +439,8 @@ pub fn switch_workspace(wm: &mut WM, idx: &usize) {
         wm.state.set_focused(wm.state.windows().last().copied());
     }
 
-    for &win in wm.state.windows() {
-        wm.conn.map_window(win).unwrap();
-    }
-
-    retile(wm);
+    let intent = retile(wm);
+    map_intent(wm, intent);
 
     if let Some(win) = wm.state.focused() {
         focus_and_warp(wm, win);
