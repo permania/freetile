@@ -1,5 +1,6 @@
 mod config;
 mod handler;
+use config::reader::load_config;
 use handler::wm;
 
 fn main() {
@@ -7,6 +8,6 @@ fn main() {
         libc::signal(libc::SIGCHLD, libc::SIG_IGN);
     }
 
-    // load_config();
+    // let _ = load_config().unwrap();
     wm::run();
 }

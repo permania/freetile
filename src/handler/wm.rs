@@ -9,7 +9,10 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use crate::config::layout::{Dir, LayoutIntent, Rect, WMSlot};
+use crate::config::{
+    layout::{Dir, LayoutIntent, Rect, WMSlot},
+    reader::{load_config, master},
+};
 
 use super::{event::event_loop, keys};
 
@@ -348,6 +351,9 @@ pub fn map_intent(wm: &mut WM, intent: LayoutIntent) -> () {
 fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
     let border_width = 3u32;
 
+    if w == 0 || h == 0 { return; }
+    if w <= border_width * 2 || h <= border_width * 2 { return; }
+
     wm.conn
         .change_window_attributes(
             window,
@@ -405,13 +411,15 @@ pub fn focus_window(wm: &mut WM, window: Window) {
 }
 
 fn warp_to_window(wm: &mut WM, window: Window) {
-    let geom = wm.conn.get_geometry(window).unwrap().reply().unwrap();
-    let cx = geom.x + (geom.width / 2) as i16;
-    let cy = geom.y + (geom.height / 2) as i16;
+    if let Some(geom) = wm.conn.get_geometry(window).unwrap().reply().ok() {
+        let cx = geom.x + (geom.width / 2) as i16;
+        let cy = geom.y + (geom.height / 2) as i16;
 
-    wm.conn
-        .warp_pointer(x11rb::NONE, wm.screen.root, 0, 0, 0, 0, cx, cy)
-        .unwrap();
+        wm.conn
+            .warp_pointer(x11rb::NONE, wm.screen.root, 0, 0, 0, 0, cx, cy)
+            .unwrap();
+    }
+    return;
 }
 
 pub fn switch_workspace(wm: &mut WM, idx: &usize) {
@@ -457,11 +465,10 @@ fn wrap_prev(i: usize, len: usize) -> usize {
 pub fn is_mapped(wm: &WM, window: Window) -> bool {
     wm.conn
         .get_window_attributes(window)
-        .unwrap()
-        .reply()
-        .unwrap()
-        .map_state
-        != MapState::UNMAPPED
+        .ok()
+        .and_then(|cookie| cookie.reply().ok())
+        .map(|attrs| attrs.map_state != MapState::UNMAPPED)
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
