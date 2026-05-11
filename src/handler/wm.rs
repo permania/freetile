@@ -314,27 +314,16 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
         h: wm.screen.height_in_pixels as u32,
     };
 
-    let slot = WMSlot::Split {
-        dir: Dir::Horizontal,
-        ratio: 0.5,
-        lhs: Box::new(WMSlot::Window),
-        rhs: Box::new(WMSlot::Split {
-            dir: Dir::Vertical,
-            ratio: 0.5,
-            lhs: Box::new(WMSlot::Window),
-            rhs: Box::new(WMSlot::Drain {
-                dir: Dir::Horizontal,
-                take: Some(2),
-            }),
-        }),
-    };
+    let slot = load_config().unwrap_or(master());
 
-    let rects = slot.compute(n, bounds, 0);
+    let rects = slot.compute(n, bounds, 8, 8);
     let windows = wm.state.windows().to_vec();
     let len = windows.len().min(rects.len());
 
     let mapped: Vec<(Window, Rect)> = (0..len).map(|i| (windows[i], rects[i])).collect();
     let unmapped = windows[len..].to_vec();
+
+    dbg!(&mapped, &unmapped);
 
     return LayoutIntent { mapped, unmapped };
 }
