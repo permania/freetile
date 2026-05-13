@@ -10,10 +10,10 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use crate::config::{
-    layout::{Dir, LayoutIntent, Rect, WMSlot},
-    reader::{EngineSetup, load_config, master},
-};
+use crate::config::layout::{LayoutIntent, Rect, WMSlot};
+use crate::config::reader;
+use crate::config::reader::load_config;
+use crate::config::reader::EngineSetup;
 
 use super::{event::event_loop, keys};
 
@@ -145,7 +145,7 @@ impl WMAction {
                 }
             }
             WMAction::FocusNext => {
-                if let Some(_) = focused_index(&wm.state) {
+                if focused_index(&wm.state).is_some() {
                     let windows: Vec<Window> = wm
                         .state
                         .windows()
@@ -163,7 +163,7 @@ impl WMAction {
                 }
             }
             WMAction::FocusPrevious => {
-                if let Some(_) = focused_index(&wm.state) {
+                if focused_index(&wm.state).is_some() {
                     let windows: Vec<Window> = wm
                         .state
                         .windows()
@@ -268,7 +268,7 @@ pub fn run() {
 
 fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let mut wm_state = WMState::new();
-    let _ = load_config(&mut wm_state).unwrap();
+    load_config(&mut wm_state).unwrap();
     let keybinds = keys::register_keybinds();
     let setup = conn.setup();
 
@@ -334,11 +334,18 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
     };
 
     let mut scope = Scope::new();
-    let result: Dynamic =
+    let result: Option<WMSlot> =
         wm.state
             .engine
-            .call_fn(&mut scope, &wm.state.layout_ast, "ratiotile", (n as i64,)).unwrap();
-    let slot = result.cast::<WMSlot>();
+            .call_fn::<Dynamic>(&mut scope, &wm.state.layout_ast, "ratiotile", (n as i64,)).ok()
+	    .and_then(|d| d.try_cast::<WMSlot>());
+
+    let slot: WMSlot = match result {
+	Some(s) => s,
+	None => {
+	    reader::master()
+	}
+    };
 
     let rects = slot.compute(n, bounds, 8, 8);
     let windows = wm.state.windows().to_vec();
@@ -349,10 +356,10 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
 
     dbg!(&mapped, &unmapped);
 
-    return LayoutIntent { mapped, unmapped };
+    LayoutIntent { mapped, unmapped }
 }
 
-pub fn map_intent(wm: &mut WM, intent: LayoutIntent) -> () {
+pub fn map_intent(wm: &mut WM, intent: LayoutIntent) {
     for (window, rect) in intent.mapped {
         if !is_mapped(wm, window) {
             wm.conn.map_window(window).unwrap();
@@ -436,7 +443,7 @@ pub fn focus_window(wm: &mut WM, window: Window) {
 }
 
 fn warp_to_window(wm: &mut WM, window: Window) {
-    if let Some(geom) = wm.conn.get_geometry(window).unwrap().reply().ok() {
+    if let Ok(geom) = wm.conn.get_geometry(window).unwrap().reply() {
         let cx = geom.x + (geom.width / 2) as i16;
         let cy = geom.y + (geom.height / 2) as i16;
 
@@ -444,7 +451,6 @@ fn warp_to_window(wm: &mut WM, window: Window) {
             .warp_pointer(x11rb::NONE, wm.screen.root, 0, 0, 0, 0, cx, cy)
             .unwrap();
     }
-    return;
 }
 
 pub fn switch_workspace(wm: &mut WM, idx: &usize) {

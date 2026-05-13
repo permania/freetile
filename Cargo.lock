@@ -77,17 +77,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "freetile"
-version = "0.1.0"
-dependencies = [
- "bitflags",
- "libc",
- "rhai",
- "x11-keysyms",
- "x11rb",
-]
-
-[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -128,6 +117,17 @@ checksum = "2964e92d1d9dc3364cae4d718d93f227e3abb088e747d92e0395bfdedf1c12ca"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kipwm"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "libc",
+ "rhai",
+ "x11-keysyms",
+ "x11rb",
 ]
 
 [[package]]

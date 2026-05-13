@@ -1,6 +1,5 @@
 mod config;
 mod handler;
-use config::reader::load_config;
 use handler::wm;
 
 fn main() {

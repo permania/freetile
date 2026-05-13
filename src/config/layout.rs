@@ -62,8 +62,8 @@ impl WMSlot {
         Rect {
             x: bounds.x + g,
             y: bounds.y + g,
-            w: (bounds.w - 2 * gap).max(0),
-            h: (bounds.h - 2 * gap).max(0),
+            w: (bounds.w - 2 * gap),
+            h: (bounds.h - 2 * gap),
         }
     }
 

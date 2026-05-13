@@ -1,8 +1,9 @@
-use std::{error::Error, fs::read_to_string, io};
+use std::error::Error;
+use std::fs::read_to_string;
 
-use rhai::{Dynamic, Engine};
+use rhai::Engine;
 
-use crate::{config::layout::{Dir, WMSlot}, handler::wm::{WM, WMState}};
+use crate::{config::layout::{Dir, WMSlot}, handler::wm::WMState};
 
 pub fn master() -> WMSlot {
     WMSlot::Split {
@@ -46,7 +47,7 @@ impl EngineSetup for Engine {
                     rhs: Box::new(rhs),
                 }
             })
-            .register_fn("master", || master());
+            .register_fn("master", master);
     }
 }
 
