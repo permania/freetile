@@ -10,10 +10,10 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use crate::config::layout::{LayoutIntent, Rect, WMSlot};
+use crate::config::{layout::{LayoutIntent, Rect, WMSlot}, reader::DEFAULT_LAYOUT_SRC};
 use crate::config::reader;
-use crate::config::reader::load_config;
 use crate::config::reader::EngineSetup;
+use crate::config::reader::load_config;
 
 use super::{event::event_loop, keys};
 
@@ -44,19 +44,21 @@ pub struct WMState {
 }
 
 impl WMState {
-    pub fn new() -> Self {
+    pub fn new(mut engine: Engine) -> Self {
+	engine.setup();
+
+        let default_ast = engine
+            .compile(DEFAULT_LAYOUT_SRC)
+            .expect("default layout must always compile");
+
         Self {
             tags: Default::default(),
             active: 0,
             first_keycode: Default::default(),
             keysyms: Default::default(),
             syms_per_keycode: Default::default(),
-            engine: {
-                let mut engine = Engine::new();
-                engine.setup();
-                engine
-            },
-            layout_ast: Default::default(),
+            engine,
+            layout_ast: default_ast,
         }
     }
 
@@ -79,7 +81,7 @@ impl WMState {
 
 impl Default for WMState {
     fn default() -> Self {
-        Self::new()
+        Self::new(Engine::new())
     }
 }
 
@@ -267,7 +269,7 @@ pub fn run() {
 }
 
 fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
-    let mut wm_state = WMState::new();
+    let mut wm_state = WMState::default();
     load_config(&mut wm_state).unwrap();
     let keybinds = keys::register_keybinds();
     let setup = conn.setup();
@@ -334,17 +336,16 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
     };
 
     let mut scope = Scope::new();
-    let result: Option<WMSlot> =
-        wm.state
-            .engine
-            .call_fn::<Dynamic>(&mut scope, &wm.state.layout_ast, "ratiotile", (n as i64,)).ok()
-	    .and_then(|d| d.try_cast::<WMSlot>());
+    let result: Option<WMSlot> = wm
+        .state
+        .engine
+        .call_fn::<Dynamic>(&mut scope, &wm.state.layout_ast, "ratiotile", (n as i64,))
+        .ok()
+        .and_then(|d| d.try_cast::<WMSlot>());
 
     let slot: WMSlot = match result {
-	Some(s) => s,
-	None => {
-	    reader::master()
-	}
+        Some(s) => s,
+        None => reader::master(0_i64),
     };
 
     let rects = slot.compute(n, bounds, 8, 8);

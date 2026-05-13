@@ -5,7 +5,9 @@ use rhai::Engine;
 
 use crate::{config::layout::{Dir, WMSlot}, handler::wm::WMState};
 
-pub fn master() -> WMSlot {
+pub const DEFAULT_LAYOUT_SRC: &str = include_str!("default.rhai");
+
+pub fn master(_n: i64) -> WMSlot {
     WMSlot::Split {
         dir: Dir::Horizontal,
         ratio: 0.5,
@@ -52,9 +54,11 @@ impl EngineSetup for Engine {
 }
 
 pub fn load_config(wm_state: &mut WMState) -> Result<(), Box<dyn Error>> {
-    let file = read_to_string("ftrc.rhai")?;
+    let file = read_to_string("ftrc.rhai");
 
-    wm_state.layout_ast = wm_state.engine.compile(&file)?;
+    if let Ok(c) = file {
+	wm_state.layout_ast = wm_state.engine.compile(c)?;
+    }
 
     Ok(())
 }
