@@ -1,0 +1,9 @@
+[package]
+name = "kipkey"
+description = "Layer-based X keybind daemon"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+x11rb = "0.13.2"
+xkbcommon = "0.9.0"
