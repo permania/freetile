@@ -1,5 +1,6 @@
 use std::process::Command;
 
+use rhai::{AST, Dynamic, Engine, Scope};
 use x11rb::{
     connection::Connection,
     protocol::xproto::{
@@ -11,7 +12,7 @@ use x11rb::{
 
 use crate::config::{
     layout::{Dir, LayoutIntent, Rect, WMSlot},
-    reader::{load_config, master},
+    reader::{EngineSetup, load_config, master},
 };
 
 use super::{event::event_loop, keys};
@@ -38,6 +39,8 @@ pub struct WMState {
     pub first_keycode: u8,
     pub keysyms: Vec<u32>,
     pub syms_per_keycode: u8,
+    pub engine: Engine,
+    pub layout_ast: AST,
 }
 
 impl WMState {
@@ -48,6 +51,12 @@ impl WMState {
             first_keycode: Default::default(),
             keysyms: Default::default(),
             syms_per_keycode: Default::default(),
+            engine: {
+                let mut engine = Engine::new();
+                engine.setup();
+                engine
+            },
+            layout_ast: Default::default(),
         }
     }
 
@@ -65,6 +74,12 @@ impl WMState {
 
     pub fn set_focused(&mut self, set: Option<u32>) {
         self.tags[self.active].focused = set;
+    }
+}
+
+impl Default for WMState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -252,7 +267,8 @@ pub fn run() {
 }
 
 fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
-    let wm_state = WMState::new();
+    let mut wm_state = WMState::new();
+    let _ = load_config(&mut wm_state).unwrap();
     let keybinds = keys::register_keybinds();
     let setup = conn.setup();
 
@@ -317,7 +333,12 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
         h: wm.screen.height_in_pixels as u32,
     };
 
-    let slot = load_config().unwrap_or(master());
+    let mut scope = Scope::new();
+    let result: Dynamic =
+        wm.state
+            .engine
+            .call_fn(&mut scope, &wm.state.layout_ast, "ratiotile", (n as i64,)).unwrap();
+    let slot = result.cast::<WMSlot>();
 
     let rects = slot.compute(n, bounds, 8, 8);
     let windows = wm.state.windows().to_vec();
@@ -351,8 +372,12 @@ pub fn map_intent(wm: &mut WM, intent: LayoutIntent) -> () {
 fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
     let border_width = 3u32;
 
-    if w == 0 || h == 0 { return; }
-    if w <= border_width * 2 || h <= border_width * 2 { return; }
+    if w == 0 || h == 0 {
+        return;
+    }
+    if w <= border_width * 2 || h <= border_width * 2 {
+        return;
+    }
 
     wm.conn
         .change_window_attributes(

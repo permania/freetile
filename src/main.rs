@@ -4,10 +4,7 @@ use config::reader::load_config;
 use handler::wm;
 
 fn main() {
-    unsafe {
-        libc::signal(libc::SIGCHLD, libc::SIG_IGN);
-    }
+    unsafe { libc::signal(libc::SIGCHLD, libc::SIG_IGN); }
 
-    // let _ = load_config().unwrap();
     wm::run();
 }
