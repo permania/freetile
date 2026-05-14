@@ -146,12 +146,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "kipbar"
+version = "0.1.0"
+
+[[package]]
 name = "kipkey"
 version = "0.1.0"
 dependencies = [
+ "kiplib",
  "x11rb",
  "xkbcommon",
 ]
+
+[[package]]
+name = "kiplib"
+version = "0.1.0"
 
 [[package]]
 name = "kipwm"
