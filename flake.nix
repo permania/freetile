@@ -5,26 +5,38 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     crane.url = "github:ipetkov/crane";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = {
-    nixpkgs,
-    flake-utils,
-    crane,
-    ...
-  }:
+  outputs =
+    {
+      nixpkgs,
+      flake-utils,
+      crane,
+      ...
+    }@inputs:
     flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs = nixpkgs.legacyPackages.${system};
+      system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ inputs.rust-overlay.overlays.default ];
+        };
+
         craneLib = crane.mkLib pkgs;
-      in {
+      in
+      {
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             pkg-config
 
             cargo
             rustc
-            rustfmt
+            rust-bin.nightly.latest.rustfmt
             clippy
             rust-analyzer
 
@@ -34,7 +46,7 @@
 
         packages.default = craneLib.buildPackage {
           src = ./.;
-          buildInputs = [];
+          buildInputs = [ ];
         };
       }
     );
