@@ -8,3 +8,4 @@ edition = "2024"
 x11rb = "0.13.2"
 xkbcommon = "0.9.0"
 kiplib = { path = "../kiplib" }
+bitflags = "2.11.1"

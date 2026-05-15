@@ -194,19 +194,6 @@ pub fn keysym_from_keycode(idx: usize, syms: &[u32]) -> u32 {
     syms[idx]
 }
 
-mod chords {
-    use bitflags::bitflags;
-
-    bitflags! {
-        struct Mods: u8 {
-        const CTRL	= 0b0001;
-        const ALT	= 0b0010;
-        const SHIFT	= 0b0100;
-        const SUPER	= 0b1000;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

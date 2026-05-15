@@ -1,14 +1,6 @@
 vars:
     browser "chromium"
-    editor "emacsclient -c"
 
 base:
-    "s-r" ?run
-    "s-p" !perm
+    "s-b" @browser
 
-run:
-    "b" @browser
-
-perm:
-    "b" !base
-    "c" @editor

@@ -5,9 +5,72 @@ pub struct Config {
     pub sections: HashMap<String, Section>,
 }
 
+impl IntoIterator for Config {
+    type Item = (String, Section);
+
+    type IntoIter =
+        std::collections::hash_map::IntoIter<String, Section>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.sections.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Config {
+    type Item = (&'a String, &'a Section);
+
+    type IntoIter =
+        std::collections::hash_map::Iter<'a, String, Section>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.sections.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Config {
+    type Item = (&'a String, &'a mut Section);
+
+    type IntoIter =
+        std::collections::hash_map::IterMut<'a, String, Section>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.sections.iter_mut()
+    }
+}
+
 #[derive(Debug)]
 pub struct Section {
     pub entries: HashMap<String, Value>,
+}
+
+impl IntoIterator for Section {
+    type Item = (String, Value);
+    type IntoIter =
+        std::collections::hash_map::IntoIter<String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Section {
+    type Item = (&'a String, &'a Value);
+    type IntoIter =
+        std::collections::hash_map::Iter<'a, String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Section {
+    type Item = (&'a String, &'a mut Value);
+    type IntoIter =
+        std::collections::hash_map::IterMut<'a, String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.iter_mut()
+    }
 }
 
 #[derive(Debug)]

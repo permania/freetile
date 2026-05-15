@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bitflags = "2.11.1"
 libc = "0.2.186"
 rhai = "1.24.0"
 x11-keysyms = { version = "0.1.0", features = ["latin1", "miscellany"] }

@@ -153,6 +153,7 @@ version = "0.1.0"
 name = "kipkey"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "kiplib",
  "x11rb",
  "xkbcommon",
@@ -166,7 +167,6 @@ version = "0.1.0"
 name = "kipwm"
 version = "0.1.0"
 dependencies = [
- "bitflags",
  "libc",
  "rhai",
  "x11-keysyms",

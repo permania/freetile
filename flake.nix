@@ -27,6 +27,8 @@
             rustfmt
             clippy
             rust-analyzer
+
+            libxkbcommon
           ];
         };
 
