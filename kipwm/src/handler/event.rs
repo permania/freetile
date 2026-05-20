@@ -10,7 +10,7 @@ use x11rb::{
 
 use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
 use crate::{
-    handler::{keys::event_to_keyresult, wm::map_intent},
+    handler::wm::map_intent,
     ipc,
 };
 
@@ -91,17 +91,6 @@ pub fn event_loop(wm: &mut WM) {
                         focus_window(wm, e.event);
                         wm.conn.flush().unwrap();
                     }
-                }
-                Event::KeyPress(e) => {
-                    println!("key: {:#?}", e);
-                    let pressed = event_to_keyresult(wm, e);
-
-                    for bind in wm.keybinds.clone() {
-                        if bind.matches(&pressed) {
-                            bind.action.execute(wm);
-                        }
-                    }
-                    wm.conn.flush().unwrap();
                 }
                 e => eprintln!("event: {:?}", e),
             }

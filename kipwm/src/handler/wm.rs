@@ -10,7 +10,7 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use super::{event::event_loop, keys};
+use super::{event::event_loop};
 use crate::{config::{
     layout::{LayoutIntent, Rect, WMSlot},
     reader::{self, DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
@@ -28,7 +28,6 @@ pub struct WM<'a> {
     pub conn: &'a RustConnection,
     pub screen: Screen,
     pub state: WMState,
-    pub keybinds: Vec<keys::KeyBind>,
     pub ignore_unmaps: usize,
     pub ipc_listener: UnixListener,
 }
@@ -271,32 +270,15 @@ pub fn run() {
 fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let mut wm_state = WMState::default();
     load_config(&mut wm_state).unwrap();
-    let keybinds = keys::register_keybinds();
     let setup = conn.setup();
 
     let mut wm = WM {
         conn,
         screen: setup.roots[screen_num].clone(),
         state: wm_state,
-        keybinds,
         ignore_unmaps: 0usize,
 	ipc_listener: ipc::open_socket()
     };
-
-    let (first_keycode, max_keycode) = {
-        keys::grab_keys(&mut wm);
-        (setup.min_keycode, setup.max_keycode)
-    };
-
-    let kb_map = conn
-        .get_keyboard_mapping(first_keycode, max_keycode - first_keycode + 1)
-        .unwrap()
-        .reply()
-        .unwrap();
-
-    wm.state.first_keycode = first_keycode;
-    wm.state.keysyms = kb_map.keysyms;
-    wm.state.syms_per_keycode = kb_map.keysyms_per_keycode;
 
     // Redirect events to the wm
     conn.change_window_attributes(
