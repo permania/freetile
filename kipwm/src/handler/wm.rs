@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{os::unix::net::UnixListener, process::Command};
 
 use rhai::{AST, Dynamic, Engine, Scope};
 use x11rb::{
@@ -11,11 +11,10 @@ use x11rb::{
 };
 
 use super::{event::event_loop, keys};
-use crate::config::{
+use crate::{config::{
     layout::{LayoutIntent, Rect, WMSlot},
-    reader,
-    reader::{DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
-};
+    reader::{self, DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
+}, ipc};
 
 type WindowSet = Vec<Window>;
 
@@ -31,6 +30,7 @@ pub struct WM<'a> {
     pub state: WMState,
     pub keybinds: Vec<keys::KeyBind>,
     pub ignore_unmaps: usize,
+    pub ipc_listener: UnixListener,
 }
 
 pub struct WMState {
@@ -98,7 +98,6 @@ impl Tag {
 
 #[derive(Debug, Clone)]
 pub enum WMAction {
-    Spawn(String, Vec<String>),
     TagSwitch(usize),
     TagWindowSwitch(usize),
     Kill,
@@ -106,6 +105,7 @@ pub enum WMAction {
     FocusPrevious,
     SwapNext,
     SwapPrevious,
+    Spawn(String, Vec<String>),
 }
 
 impl WMAction {
@@ -280,6 +280,7 @@ fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
         state: wm_state,
         keybinds,
         ignore_unmaps: 0usize,
+	ipc_listener: ipc::open_socket()
     };
 
     let (first_keycode, max_keycode) = {

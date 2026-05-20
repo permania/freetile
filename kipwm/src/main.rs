@@ -1,5 +1,7 @@
 mod config;
 mod handler;
+mod ipc;
+
 use handler::wm;
 
 fn main() {

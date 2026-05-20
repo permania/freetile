@@ -1,3 +1,5 @@
+use std::io::{self, Read};
+
 use x11rb::{
     connection::Connection,
     protocol::{
@@ -7,12 +9,15 @@ use x11rb::{
 };
 
 use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
-use crate::handler::{keys::event_to_keyresult, wm::map_intent};
+use crate::{
+    handler::{keys::event_to_keyresult, wm::map_intent},
+    ipc,
+};
 
 pub fn event_loop(wm: &mut WM) {
     loop {
-        match wm.conn.wait_for_event() {
-            Ok(event) => match event {
+        while let Some(event) = wm.conn.poll_for_event().unwrap() {
+            match event {
                 Event::Error(e) => eprintln!("error: {:?}", e),
                 Event::MapRequest(e) => {
                     let window = e.window;
@@ -99,11 +104,25 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn.flush().unwrap();
                 }
                 e => eprintln!("event: {:?}", e),
-            },
-            Err(e) => {
-                eprintln!("X Connection Died: {e}");
-                break;
             }
+        }
+
+        match wm.ipc_listener.accept() {
+            Ok((mut stream, _)) => {
+                let mut buf = Vec::new();
+                stream.read_to_end(&mut buf).unwrap();
+                let action = ipc::handle_message(&buf);
+                dbg!(&action);
+
+                if let Some(a) = action {
+                    a.execute(wm);
+                    wm.conn.flush().unwrap()
+                } else {
+                    eprintln!("bad ipc request!");
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
+            Err(e) => eprintln!("ipc error: {e}"),
         }
     }
 }
