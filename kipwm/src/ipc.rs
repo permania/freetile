@@ -14,11 +14,18 @@ pub fn handle_message(buf: &[u8]) -> Option<WMAction> {
     match buf.first()? {
         0x01 => Some(WMAction::Kill),
 
-        0x02 => match buf.get(1)? {
-            0x00 => Some(WMAction::FocusPrevious),
-            0x01 => Some(WMAction::FocusNext),
-            _ => None,
-        },
+        0x02 => {
+            let dir = buf.get(1)?;
+            let mode = buf.get(2)?;
+
+            match (dir, mode) {
+                (0x00, 0x00) => Some(WMAction::FocusPrevious),
+                (0x01, 0x00) => Some(WMAction::FocusNext),
+                (0x00, 0x01) => Some(WMAction::SwapPrevious),
+                (0x01, 0x01) => Some(WMAction::SwapNext),
+                _ => None,
+            }
+        }
 
         0x03 => {
             let tag = *buf.get(1)? as usize;

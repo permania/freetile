@@ -264,6 +264,8 @@ impl WMAction {
 pub fn run() {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
     let mut wm = setup_wm(&conn, screen_num);
+
+    Command::new("sh").arg("-c").arg("alacritty").spawn().unwrap();
     event_loop(&mut wm);
 }
 

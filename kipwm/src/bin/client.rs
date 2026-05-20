@@ -14,6 +14,9 @@ enum Ops {
     Kill,
 
     Focus {
+        #[arg(long, short)]
+        follow: bool,
+
         #[arg(value_enum)]
         action: FocusOpt,
     },
@@ -40,12 +43,13 @@ fn main() {
         let mut res = Vec::new();
         match cli.op {
             Ops::Kill => res.extend([0x01]),
-            Ops::Focus { action } => res.extend([
+            Ops::Focus { follow, action } => res.extend([
                 0x02,
                 match action {
                     FocusOpt::Prev => 0x00,
                     FocusOpt::Next => 0x01,
                 },
+		if follow { 0x01 } else { 0x00 },
             ]),
             Ops::Tag { follow, idx } => {
                 res.push(if follow { 0x04 } else { 0x03 });

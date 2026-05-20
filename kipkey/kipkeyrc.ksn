@@ -3,29 +3,67 @@ vars:
     terminal "alacritty"
     editor "emacsclient -c"
     launcher "rofi -show drun"
-    files "thunar"
 
 base:
-    s-Return @terminal
-    s-b @browser
-    s-e @editor
-    s-space @launcher
+    s-m /home/corn/documents/git/kip/target/debug/kipc kill
+    s-k /home/corn/documents/git/kip/target/debug/kipc focus prev
+    s-j /home/corn/documents/git/kip/target/debug/kipc focus next
+    s-K /home/corn/documents/git/kip/target/debug/kipc focus prev -f
+    s-J /home/corn/documents/git/kip/target/debug/kipc focus next -f
+
+    s-a /home/corn/documents/git/kip/target/debug/kipc tag 0
+    s-s /home/corn/documents/git/kip/target/debug/kipc tag 1
+    s-d /home/corn/documents/git/kip/target/debug/kipc tag 2
+    s-f /home/corn/documents/git/kip/target/debug/kipc tag 3
+    s-u /home/corn/documents/git/kip/target/debug/kipc tag 4
+    s-i /home/corn/documents/git/kip/target/debug/kipc tag 5
+    s-o /home/corn/documents/git/kip/target/debug/kipc tag 6
+    s-p /home/corn/documents/git/kip/target/debug/kipc tag 7
+
+    s-A /home/corn/documents/git/kip/target/debug/kipc tag -f 0 
+    s-S /home/corn/documents/git/kip/target/debug/kipc tag -f 1 
+    s-D /home/corn/documents/git/kip/target/debug/kipc tag -f 2 
+    s-F /home/corn/documents/git/kip/target/debug/kipc tag -f 3 
+    s-U /home/corn/documents/git/kip/target/debug/kipc tag -f 4 
+    s-I /home/corn/documents/git/kip/target/debug/kipc tag -f 5 
+    s-O /home/corn/documents/git/kip/target/debug/kipc tag -f 6 
+    s-P /home/corn/documents/git/kip/target/debug/kipc tag -f 7 
+
     s-r ?run
-    s-P !perm
-    s-Escape "pkill kipkey"
+    s-w !wm
 
 run:
     b @browser
+    n @terminal
     e @editor
-    t @terminal
-    f @files
+    space @launcher
     Escape !base
 
-perm:
-    b !base
-    r ?run
-    k "kipc wm kill"
-    j "kipc wm focus next"
-    K "kipc wm focus prev"
-    Escape !base
+wm:
+    space @launcher
 
+    a /home/corn/documents/git/kip/target/debug/kipc tag 0
+    s /home/corn/documents/git/kip/target/debug/kipc tag 1
+    d /home/corn/documents/git/kip/target/debug/kipc tag 2
+    f /home/corn/documents/git/kip/target/debug/kipc tag 3
+    u /home/corn/documents/git/kip/target/debug/kipc tag 4
+    i /home/corn/documents/git/kip/target/debug/kipc tag 5
+    o /home/corn/documents/git/kip/target/debug/kipc tag 6
+    p /home/corn/documents/git/kip/target/debug/kipc tag 7
+
+    A /home/corn/documents/git/kip/target/debug/kipc tag -f 0 
+    S /home/corn/documents/git/kip/target/debug/kipc tag -f 1 
+    D /home/corn/documents/git/kip/target/debug/kipc tag -f 2 
+    F /home/corn/documents/git/kip/target/debug/kipc tag -f 3 
+    U /home/corn/documents/git/kip/target/debug/kipc tag -f 4 
+    I /home/corn/documents/git/kip/target/debug/kipc tag -f 5 
+    O /home/corn/documents/git/kip/target/debug/kipc tag -f 6 
+    P /home/corn/documents/git/kip/target/debug/kipc tag -f 7 
+
+    m /home/corn/documents/git/kip/target/debug/kipc kill
+    k /home/corn/documents/git/kip/target/debug/kipc focus prev
+    j /home/corn/documents/git/kip/target/debug/kipc focus next
+    K /home/corn/documents/git/kip/target/debug/kipc focus prev -f
+    J /home/corn/documents/git/kip/target/debug/kipc focus next -f
+
+    Escape !base
