@@ -1,9 +1,11 @@
-use std::error::Error;
-use std::fs::read_to_string;
+use std::{error::Error, fs::read_to_string};
 
 use rhai::Engine;
 
-use crate::{config::layout::{Dir, WMSlot}, handler::wm::WMState};
+use crate::{
+    config::layout::{Dir, WMSlot},
+    handler::wm::WMState,
+};
 
 pub const DEFAULT_LAYOUT_SRC: &str = include_str!("default.rhai");
 
@@ -57,7 +59,7 @@ pub fn load_config(wm_state: &mut WMState) -> Result<(), Box<dyn Error>> {
     let file = read_to_string("ftrc.rhai");
 
     if let Ok(c) = file {
-	wm_state.layout_ast = wm_state.engine.compile(c)?;
+        wm_state.layout_ast = wm_state.engine.compile(c)?;
     }
 
     Ok(())

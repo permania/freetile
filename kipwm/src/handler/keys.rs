@@ -196,8 +196,9 @@ pub fn keysym_from_keycode(idx: usize, syms: &[u32]) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use x11rb::protocol::xproto::{KeyButMask, ModMask};
+
+    use super::*;
 
     // --- normalize_keysym ---
 

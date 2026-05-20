@@ -1,9 +1,13 @@
+mod event;
+mod grab;
+
 use std::{collections::HashMap, error::Error};
 
-use kiplib::config::rc;
-use xkbcommon::xkb::{self, Keysym, keysyms};
-
 use bitflags::bitflags;
+use grab::KipkeyContext;
+use kiplib::config::rc;
+use x11rb::protocol::xproto::{self, ModMask};
+use xkbcommon::xkb::{self};
 
 const VARS_SECTION: &str = "vars";
 
@@ -15,6 +19,42 @@ bitflags! [
     const SUPER	= 0b1000;
     }
 ];
+
+impl Mods {
+    pub fn to_modmask(&self) -> ModMask {
+        let mut mask = ModMask::default();
+        if self.contains(Self::CTRL) {
+            mask |= ModMask::CONTROL;
+        }
+        if self.contains(Self::META) {
+            mask |= ModMask::M1;
+        }
+        if self.contains(Self::SUPER) {
+            mask |= ModMask::M4;
+        }
+        mask
+    }
+}
+
+impl From<xproto::KeyButMask> for Mods {
+    fn from(mask: xproto::KeyButMask) -> Self {
+        let mut mods = Mods::empty();
+
+        if mask.contains(xproto::KeyButMask::from(u16::from(ModMask::CONTROL))) {
+            mods |= Mods::CTRL;
+        }
+        if mask.contains(xproto::KeyButMask::from(u16::from(ModMask::M1))) {
+            mods |= Mods::META;
+        }
+        if mask.contains(xproto::KeyButMask::from(u16::from(ModMask::M4))) {
+            mods |= Mods::SUPER;
+        }
+
+        mods
+    }
+}
+pub(crate) type GrabbedKeys = Vec<Grab>;
+pub(crate) type Grab = (u8, xproto::ModMask);
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 struct Keybind {
@@ -43,14 +83,39 @@ impl Action {
 #[derive(Debug)]
 struct KipkeyState {
     current: String,
-    queue: Vec<String>,
-    vars: HashMap<String, String>,
-    bindings: HashMap<Keybind, Action>,
+    origin: Option<String>,
+    grabbed: GrabbedKeys,
+    layers: HashMap<String, HashMap<Keybind, Action>>,
+}
+
+impl KipkeyState {
+    fn switch_layer(&mut self, ctx: &KipkeyContext, layer: String) {
+        grab::ungrab_keys(ctx.conn, ctx.screen_root, &self.grabbed);
+        self.current = layer;
+
+        let new_keys = self.current_layer_binds();
+        let new_grabbed = grab::grab_keys(ctx, new_keys);
+
+        self.grabbed = new_grabbed;
+    }
+
+    fn current_layer_binds(&self) -> Vec<&Keybind> {
+        self.layers
+            .get(&self.current)
+            .map(|layer| layer.keys().collect())
+            .unwrap_or_default()
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut vars = HashMap::<String, String>::new();
-    let mut layers = HashMap::<String, HashMap<Keybind, Action>>::new();
+
+    let mut state = KipkeyState {
+        current: "base".to_string(),
+        origin: None,
+        grabbed: GrabbedKeys::new(),
+        layers: HashMap::<String, HashMap<Keybind, Action>>::new(),
+    };
 
     let config = rc::read_config("kipkeyrc.ksn")?;
 
@@ -70,7 +135,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             continue;
         }
         for (name, item) in section {
-            layers
+            state
+                .layers
                 .entry(s_name.to_string())
                 .or_insert_with(HashMap::new)
                 .insert(
@@ -80,8 +146,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    dbg!(&layers);
-    dbg!(all_keybinds(&layers));
+    let (conn, screen_num) = x11rb::connect(None).unwrap();
+    let ctx = grab::setup_server(&conn, screen_num);
+
+    state.switch_layer(&ctx, "base".to_string());
+
+    event::event_loop(&ctx, &mut state);
 
     Ok(())
 }
@@ -119,8 +189,4 @@ where
         mods: flags,
         keysym,
     })
-}
-
-fn all_keybinds(layers: &HashMap<String, HashMap<Keybind, Action>>) -> Vec<&Keybind> {
-    layers.values().flat_map(|layer| layer.keys()).collect()
 }

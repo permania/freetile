@@ -10,12 +10,12 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use crate::config::{layout::{LayoutIntent, Rect, WMSlot}, reader::DEFAULT_LAYOUT_SRC};
-use crate::config::reader;
-use crate::config::reader::EngineSetup;
-use crate::config::reader::load_config;
-
 use super::{event::event_loop, keys};
+use crate::config::{
+    layout::{LayoutIntent, Rect, WMSlot},
+    reader,
+    reader::{DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
+};
 
 type WindowSet = Vec<Window>;
 
@@ -45,7 +45,7 @@ pub struct WMState {
 
 impl WMState {
     pub fn new(mut engine: Engine) -> Self {
-	engine.setup();
+        engine.setup();
 
         let default_ast = engine
             .compile(DEFAULT_LAYOUT_SRC)

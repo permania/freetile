@@ -1,6 +1,31 @@
 vars:
     browser "chromium"
+    terminal "alacritty"
+    editor "emacsclient -c"
+    launcher "rofi -show drun"
+    files "thunar"
 
 base:
-    "s-b" @browser
+    s-Return @terminal
+    s-b @browser
+    s-e @editor
+    s-space @launcher
+    s-r ?run
+    s-P !perm
+    s-Escape "pkill kipkey"
+
+run:
+    b @browser
+    e @editor
+    t @terminal
+    f @files
+    Escape !base
+
+perm:
+    b !base
+    r ?run
+    k "kipc wm kill"
+    j "kipc wm focus next"
+    K "kipc wm focus prev"
+    Escape !base
 

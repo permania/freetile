@@ -6,9 +6,8 @@ use x11rb::{
     },
 };
 
-use crate::handler::{keys::event_to_keyresult, wm::map_intent};
-
 use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
+use crate::handler::{keys::event_to_keyresult, wm::map_intent};
 
 pub fn event_loop(wm: &mut WM) {
     loop {
