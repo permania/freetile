@@ -84,7 +84,9 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn.flush().unwrap();
                 }
                 Event::DestroyNotify(e) => {
-                    wm.state.windows_mut().retain(|&w| w != e.window);
+		    for tag in wm.state.tags.iter_mut() {
+			tag.windows_mut().retain(|&w| w != e.window);
+		    }
                 }
                 Event::EnterNotify(e) => {
                     if e.mode == NotifyMode::NORMAL && e.detail != NotifyDetail::INFERIOR {
