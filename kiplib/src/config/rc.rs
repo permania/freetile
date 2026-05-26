@@ -48,6 +48,7 @@ impl Config {
 #[derive(Debug)]
 pub struct Section {
     pub entries: HashMap<String, Value>,
+    pub scalars: Vec<Value>,
 }
 
 impl IntoIterator for Section {
@@ -181,24 +182,34 @@ fn split_sections(config_string: String) -> Config {
 
         if line.starts_with("    ") {
             let line_trimmed = line.trim();
-            if let Some((ident, value)) = line_trimmed.split_once(' ') {
-                if let Some(s_name) = &current_section {
-                    if let Some(section) = sections.get_mut(s_name) {
-                        let key = ident.trim_matches('"').to_string();
-                        let parsed = Tagged::parse_value(value);
 
-                        section.entries.insert(key, parsed);
-                    }
-                }
-            } else {
-                todo!();
+            let Some(s_name) = &current_section else {
+                continue;
             };
+            let Some(section) = sections.get_mut(s_name) else {
+                continue;
+            };
+
+            if line_trimmed.starts_with('+') {
+                let value = &line_trimmed[1..];
+                let parsed = Tagged::parse_value(value);
+                section.scalars.push(parsed);
+                continue;
+            }
+
+            if let Some((ident, value)) = line_trimmed.split_once(' ') {
+                let key = ident.trim_matches('"').to_string();
+                let parsed = Tagged::parse_value(value);
+                section.entries.insert(key, parsed);
+            }
+
             continue;
         } else if let Some((left, _)) = line.split_once(':') {
             let name = left.to_string();
 
             sections.entry(name.clone()).or_insert_with(|| Section {
                 entries: HashMap::new(),
+                scalars: Vec::new(),
             });
 
             current_section = Some(name);
