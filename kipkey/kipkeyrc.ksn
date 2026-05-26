@@ -1,8 +1,8 @@
 vars:
-    browser "chromium"
-    terminal "alacritty"
-    editor "emacsclient -c"
-    launcher "rofi -show drun"
+    browser chromium
+    terminal alacritty
+    editor emacsclient -c
+    launcher rofi -show drun
 
 base:
     s-m /home/corn/documents/git/kip/target/debug/kipc kill
@@ -31,6 +31,8 @@ base:
 
     s-r ?run
     s-w !wm
+
+    s-space @launcher
 
 run:
     b @browser

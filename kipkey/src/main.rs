@@ -64,18 +64,25 @@ struct Keybind {
 
 #[derive(Debug)]
 enum Action {
-    Cmd(String),
+    Cmd { head: String, tail: Vec<String> },
     LayerSwitch(String),
     StackPush(String),
 }
 
 impl Action {
-    fn resolve_action(value: rc::Value, vars: &HashMap<String, String>) -> Self {
-        match value {
-            rc::Value::Literal(s) => Self::Cmd(s),
-            rc::Value::Bang(s) => Self::LayerSwitch(s),
-            rc::Value::Question(s) => Self::StackPush(s),
-            rc::Value::At(s) => Self::Cmd(vars.get(&s).cloned().unwrap_or(s)),
+    fn resolve_action(value: rc::Value, vars: &HashMap<String, rc::Value>) -> Self {
+        match value.0.first() {
+            Some(rc::Tagged::Literal(_)) => {
+		let flat = flatten_literal(value, vars);
+		vec_to_cmd(flat).unwrap()
+	    }
+            Some(rc::Tagged::At(_)) => {
+		let flat = flatten_literal(value, vars);
+		vec_to_cmd(flat).unwrap()
+	    }
+            Some(rc::Tagged::Bang(s)) => Self::LayerSwitch(s.to_string()),
+            Some(rc::Tagged::Question(s)) => Self::StackPush(s.to_string()),
+            _ => todo!(),
         }
     }
 }
@@ -108,7 +115,7 @@ impl KipkeyState {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut vars = HashMap::<String, String>::new();
+    let mut vars = HashMap::<String, rc::Value>::new();
 
     let mut state = KipkeyState {
         current: "base".to_string(),
@@ -124,9 +131,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             continue;
         }
         for (name, item) in section {
-            if let rc::Value::Literal(i) = item {
-                vars.insert(name.clone(), i.clone());
-            }
+            let s = item.clone();
+            vars.insert(name.clone(), s);
         }
     }
 
@@ -154,6 +160,39 @@ fn main() -> Result<(), Box<dyn Error>> {
     event::event_loop(&ctx, &mut state);
 
     Ok(())
+}
+
+fn resolve_at(s: &str, vars: &HashMap<String, rc::Value>) -> Option<rc::Value> {
+    vars.get(s).cloned()
+}
+
+fn flatten_literal(v: rc::Value, vars: &HashMap<String, rc::Value>) -> Vec<String> {
+    let mut out = Vec::new();
+
+    for tag in v.0 {
+        match tag {
+            rc::Tagged::Literal(s) => {
+                out.push(s);
+            }
+
+            rc::Tagged::At(name) => {
+                if let Some(resolved) = resolve_at(&name, vars) {
+                    let mut inner = flatten_literal(resolved, vars);
+                    out.append(&mut inner);
+                }
+            }
+            _ => todo!(),
+        }
+    }
+
+    out
+}
+
+fn vec_to_cmd(mut v: Vec<String>) -> Option<Action> {
+    let head = v.first()?.clone();
+    let tail = v.split_off(1);
+
+    Some(Action::Cmd { head, tail })
 }
 
 fn keybind_from_string<T>(stri: T) -> Result<Keybind, &'static str>

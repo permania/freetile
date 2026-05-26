@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{collections::HashMap, fs, path::Path};
 
 #[derive(Debug)]
@@ -76,23 +77,87 @@ impl<'a> IntoIterator for &'a mut Section {
     }
 }
 
-#[derive(Debug)]
-pub enum Value {
+#[derive(Debug, Clone)]
+pub enum Tagged {
     Literal(String),
     Bang(String),
     Question(String),
     At(String),
 }
 
-impl Value {
-    pub fn parse(s: &str) -> Value {
-        match s.chars().next() {
-            Some('!') => Value::Bang(s[1..].to_string()),
-            Some('?') => Value::Question(s[1..].to_string()),
-            Some('@') => Value::At(s[1..].to_string()),
-            _ => Value::Literal(s.to_string()),
+impl fmt::Display for Tagged {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Tagged::Literal(s) => write!(f, "{s}"),
+            Tagged::Bang(s) => write!(f, "!{s}"),
+            Tagged::Question(s) => write!(f, "?{s}"),
+            Tagged::At(s) => write!(f, "@{s}"),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Value(pub Vec<Tagged>);
+
+impl Value {
+    pub fn iter(&self) -> std::slice::Iter<'_, Tagged> {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Value {
+    type Item = &'a Tagged;
+    type IntoIter = std::slice::Iter<'a, Tagged>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl IntoIterator for Value {
+    type Item = Tagged;
+    type IntoIter = std::vec::IntoIter<Tagged>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for tagged in &self.0 {
+            write!(f, "{tagged}")?;
+        }
+        Ok(())
+    }
+}
+
+impl FromIterator<Tagged> for Value {
+    fn from_iter<I: IntoIterator<Item = Tagged>>(iter: I) -> Self {
+        Value(iter.into_iter().collect())
+    }
+}
+
+impl Tagged {
+    fn parse_value(s: &str) -> Value {
+        s.split_whitespace()
+            .map(|token| match token.chars().next() {
+                Some('@') => Tagged::At(token[1..].to_string()),
+                Some('!') => Tagged::Bang(token[1..].to_string()),
+                Some('?') => Tagged::Question(token[1..].to_string()),
+                _ => Tagged::Literal(token.to_string()),
+            })
+            .collect()
+    }
+
+    // pub fn parse(s: &str) -> Tagged {
+    //     match s.chars().next() {
+    //         Some('!') => Tagged::Bang(s[1..].to_string()),
+    //         Some('?') => Tagged::Question(s[1..].to_string()),
+    //         Some('@') => Tagged::At(s[1..].to_string()),
+    //         _ => Tagged::Literal(s.to_string()),
+    //     }
+    // }
 }
 
 pub fn read_config<T>(path: T) -> Result<Config, std::io::Error>
@@ -120,9 +185,9 @@ fn split_sections(config_string: String) -> Config {
                 if let Some(s_name) = &current_section {
                     if let Some(section) = sections.get_mut(s_name) {
                         let key = ident.trim_matches('"').to_string();
-                        let value = Value::parse(value.trim().trim_matches('"'));
+                        let parsed = Tagged::parse_value(value);
 
-                        section.entries.insert(key, value);
+                        section.entries.insert(key, parsed);
                     }
                 }
             } else {

@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use x11rb::{connection::Connection, protocol::Event, rust_connection::RustConnection};
+use x11rb::{connection::Connection, protocol::Event};
 
 use crate::{
     KipkeyState,
@@ -13,25 +13,27 @@ pub fn event_loop(ctx: &KipkeyContext, state: &mut KipkeyState) {
             Event::KeyPress(e) => {
                 let caught_bind = event_to_keybind(ctx, e);
 
-                dbg!(state.current_layer_binds());
-                dbg!(&caught_bind);
-                dbg!(
-                    state
-                        .layers
-                        .get(&state.current)
-                        .and_then(|l| l.get(&caught_bind))
-                );
-
                 // SHOULD always be Some
                 if let Some(action) = state
                     .layers
                     .get(&state.current)
                     .and_then(|l| l.get(&caught_bind))
                 {
+                    dbg!(&action);
+
                     match action {
-                        crate::Action::Cmd(c) => {
-                            if let Err(e) = Command::new("sh").arg("-c").arg(c).spawn() {
-                                eprintln!("failed to spawn {c}: {e}");
+                        crate::Action::Cmd { head, tail } => {
+			    let mut shell_str = head.clone();
+
+			    for arg in tail {
+				shell_str.push(' ');
+				shell_str.push_str(arg);
+			    }
+
+                            if let Err(e) =
+                                Command::new("sh").arg("-c").arg(shell_str).spawn()
+                            {
+                                eprintln!("failed to spawn command: {e}");
                             }
 
                             if let Some(origin) = state.origin.take() {
