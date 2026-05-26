@@ -1,9 +1,9 @@
 use std::{error::Error, fs::read_to_string};
-use crate::config::layout::layout::WMSlot;
-use crate::config::layout::layout::Dir;
+
 use rhai::Engine;
 
 use crate::{
+    config::layout::layout::{Dir, WMSlot},
     handler::wm::WMState,
 };
 
@@ -43,14 +43,17 @@ impl EngineSetup for Engine {
                 dir,
                 take,
             })
-            .register_fn("split", |dir: Dir, ratio: f64, lhs: WMSlot, rhs: WMSlot| -> _ {
-                WMSlot::Split {
-                    dir,
-                    ratio,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                }
-            })
+            .register_fn(
+                "split",
+                |dir: Dir, ratio: f64, lhs: WMSlot, rhs: WMSlot| -> _ {
+                    WMSlot::Split {
+                        dir,
+                        ratio,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    }
+                },
+            )
             .register_fn("master", master);
     }
 }

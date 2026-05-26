@@ -23,16 +23,14 @@ pub fn event_loop(ctx: &KipkeyContext, state: &mut KipkeyState) {
 
                     match action {
                         crate::Action::Cmd { head, tail } => {
-			    let mut shell_str = head.clone();
+                            let mut shell_str = head.clone();
 
-			    for arg in tail {
-				shell_str.push(' ');
-				shell_str.push_str(arg);
-			    }
+                            for arg in tail {
+                                shell_str.push(' ');
+                                shell_str.push_str(arg);
+                            }
 
-                            if let Err(e) =
-                                Command::new("sh").arg("-c").arg(shell_str).spawn()
-                            {
+                            if let Err(e) = Command::new("sh").arg("-c").arg(shell_str).spawn() {
                                 eprintln!("failed to spawn command: {e}");
                             }
 

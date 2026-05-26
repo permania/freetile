@@ -23,7 +23,11 @@ pub fn event_to_keybind(ctx: &KipkeyContext, e: KeyPressEvent) -> Keybind {
     let idx = (keycode - ctx.first_keycode) as usize * ctx.syms_per_keycode as usize;
 
     let shifted = u16::from(e.state) & u16::from(ModMask::SHIFT) != 0;
-    let sym = if shifted { ctx.keysyms[idx + 1] } else { ctx.keysyms[idx] };
+    let sym = if shifted {
+        ctx.keysyms[idx + 1]
+    } else {
+        ctx.keysyms[idx]
+    };
 
     Keybind {
         keysym: sym.into(),

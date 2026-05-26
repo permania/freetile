@@ -73,13 +73,13 @@ impl Action {
     fn resolve_action(value: rc::Value, vars: &HashMap<String, rc::Value>) -> Self {
         match value.0.first() {
             Some(rc::Tagged::Literal(_)) => {
-		let flat = flatten_literal(value, vars);
-		vec_to_cmd(flat).unwrap()
-	    }
+                let flat = flatten_literal(value, vars);
+                vec_to_cmd(flat).unwrap()
+            }
             Some(rc::Tagged::At(_)) => {
-		let flat = flatten_literal(value, vars);
-		vec_to_cmd(flat).unwrap()
-	    }
+                let flat = flatten_literal(value, vars);
+                vec_to_cmd(flat).unwrap()
+            }
             Some(rc::Tagged::Bang(s)) => Self::LayerSwitch(s.to_string()),
             Some(rc::Tagged::Question(s)) => Self::StackPush(s.to_string()),
             _ => todo!(),

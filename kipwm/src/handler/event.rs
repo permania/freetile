@@ -9,10 +9,7 @@ use x11rb::{
 };
 
 use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
-use crate::{
-    handler::wm::map_intent,
-    ipc,
-};
+use crate::{handler::wm::map_intent, ipc};
 
 pub fn event_loop(wm: &mut WM) {
     loop {
@@ -84,9 +81,9 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn.flush().unwrap();
                 }
                 Event::DestroyNotify(e) => {
-		    for tag in wm.state.tags.iter_mut() {
-			tag.windows_mut().retain(|&w| w != e.window);
-		    }
+                    for tag in wm.state.tags.iter_mut() {
+                        tag.windows_mut().retain(|&w| w != e.window);
+                    }
                 }
                 Event::EnterNotify(e) => {
                     if e.mode == NotifyMode::NORMAL && e.detail != NotifyDetail::INFERIOR {

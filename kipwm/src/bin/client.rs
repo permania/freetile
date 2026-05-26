@@ -49,7 +49,7 @@ fn main() {
                     FocusOpt::Prev => 0x00,
                     FocusOpt::Next => 0x01,
                 },
-		if follow { 0x01 } else { 0x00 },
+                if follow { 0x01 } else { 0x00 },
             ]),
             Ops::Tag { follow, idx } => {
                 res.push(if follow { 0x04 } else { 0x03 });
