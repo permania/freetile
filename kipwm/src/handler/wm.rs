@@ -10,11 +10,15 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use super::{event::event_loop};
-use crate::{config::{
-    layout::{LayoutIntent, Rect, WMSlot},
-    reader::{self, DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
-}, ipc};
+use super::event::event_loop;
+use crate::{
+    config::layout::{
+        layout::{LayoutIntent, Rect, WMSlot},
+        reader,
+        reader::{DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
+    },
+    ipc,
+};
 
 type WindowSet = Vec<Window>;
 
@@ -265,7 +269,11 @@ pub fn run() {
     let (conn, screen_num) = x11rb::connect(None).unwrap();
     let mut wm = setup_wm(&conn, screen_num);
 
-    Command::new("sh").arg("-c").arg("alacritty").spawn().unwrap();
+    Command::new("sh")
+        .arg("-c")
+        .arg("alacritty")
+        .spawn()
+        .unwrap();
     event_loop(&mut wm);
 }
 
@@ -279,7 +287,7 @@ fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
         screen: setup.roots[screen_num].clone(),
         state: wm_state,
         ignore_unmaps: 0usize,
-	ipc_listener: ipc::open_socket()
+        ipc_listener: ipc::open_socket(),
     };
 
     // Redirect events to the wm
