@@ -263,6 +263,7 @@ pub fn run() {
         .arg("alacritty")
         .spawn()
         .unwrap();
+
     event_loop(&mut wm);
 }
 

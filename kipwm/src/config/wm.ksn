@@ -1,5 +1,0 @@
-autostart:
-    +kipkey
-    +kipbar
-    +picom
-    +emacsclient -c
