@@ -51,7 +51,7 @@ pub fn setup_server<'a>(conn: &'a RustConnection, screen_num: usize) -> KipkeyCo
     let keysyms = kb_map.keysyms;
 
     KipkeyContext {
-        conn: &conn,
+        conn,
         screen_root: root,
         setup,
         first_keycode,
@@ -65,7 +65,7 @@ pub fn grab_keys(ctx: &KipkeyContext, binds: Vec<&Keybind>) -> GrabbedKeys {
 
     for bind in binds.iter() {
         let sym = bind.keysym;
-        let mods = ModMask::from(bind.mods.to_modmask());
+        let mods = bind.mods.to_modmask();
 
         for keycode in ctx.first_keycode..=ctx.setup.max_keycode {
             let idx = (keycode - ctx.first_keycode) as usize * ctx.syms_per_keycode as usize;
@@ -83,7 +83,7 @@ pub fn grab_keys(ctx: &KipkeyContext, binds: Vec<&Keybind>) -> GrabbedKeys {
                     .check()
                     .unwrap();
 
-                grabbed.push((keycode, mods.into()));
+                grabbed.push((keycode, mods));
 
                 break;
             } else if ctx.keysyms.get(idx + 1).copied().unwrap_or(0) == sym.raw() {
@@ -100,7 +100,7 @@ pub fn grab_keys(ctx: &KipkeyContext, binds: Vec<&Keybind>) -> GrabbedKeys {
                     .check()
                     .unwrap();
 
-                grabbed.push((keycode, mods.into()));
+                grabbed.push((keycode, mods));
                 break;
             }
         }

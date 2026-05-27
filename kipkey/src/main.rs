@@ -141,14 +141,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             continue;
         }
         for (name, item) in section {
-            state
-                .layers
-                .entry(s_name.to_string())
-                .or_insert_with(HashMap::new)
-                .insert(
-                    keybind_from_string(name)?,
-                    Action::resolve_action(item, &vars),
-                );
+            state.layers.entry(s_name.to_string()).or_default().insert(
+                keybind_from_string(name)?,
+                Action::resolve_action(item, &vars),
+            );
         }
     }
 
@@ -211,8 +207,8 @@ where
         return Err("invalid keysym");
     }
 
-    while let Some(next_mod) = parts.next() {
-        let flag = match next_mod {
+    for n_mod in parts {
+        let flag = match n_mod {
             "s" => Some(Mods::SUPER),
             "C" => Some(Mods::CTRL),
             "M" => Some(Mods::META),

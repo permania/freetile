@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{collections::HashMap, fmt::Write, fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 
 #[derive(Debug)]
 pub struct Config {
@@ -53,7 +53,10 @@ pub struct Section {
 
 impl Section {
     pub fn empty() -> Self {
-	Section { entries: HashMap::new(), scalars: Vec::new() }
+        Section {
+            entries: HashMap::new(),
+            scalars: Vec::new(),
+        }
     }
 }
 
@@ -199,8 +202,7 @@ fn split_sections(config_string: String) -> Config {
                 continue;
             };
 
-            if line_trimmed.starts_with('+') {
-                let value = &line_trimmed[1..];
+            if let Some(value) = line_trimmed.strip_prefix('+') {
                 let parsed = Tagged::parse_value(value);
                 section.scalars.push(parsed);
                 continue;

@@ -3,7 +3,7 @@ use std::{error::Error, fs::read_to_string};
 use rhai::Engine;
 
 use crate::{
-    config::layout::layout::{Dir, WMSlot},
+    config::layout::rhai::{Dir, WMSlot},
     handler::wm::WMState,
 };
 

@@ -1,8 +1,8 @@
 use std::process::Command;
 
-use kiplib::config::rc::{self, Config, Section};
+use kiplib::config::rc::{self, Config};
 
-const AUTOSTART_SECTION: &'static str = "autostart";
+const AUTOSTART_SECTION: &str = "autostart";
 
 pub fn load_wm_config() -> Result<Config, std::io::Error> {
     let config = rc::read_config("wm.ksn")?;
@@ -18,6 +18,6 @@ fn autostart(conf: &Config) {
         .unwrap_or(&[]);
 
     cmds.iter().for_each(|cmd| {
-	let _ = Command::new("sh").arg("-c").arg(cmd.to_string()).spawn();
+        let _ = Command::new("sh").arg("-c").arg(cmd.to_string()).spawn();
     });
 }

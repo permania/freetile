@@ -1,6 +1,6 @@
 use std::{io::Write, os::unix::net::UnixStream};
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

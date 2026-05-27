@@ -13,9 +13,9 @@ use x11rb::{
 use super::event::event_loop;
 use crate::{
     config::layout::{
-        layout::{LayoutIntent, Rect, WMSlot},
         reader,
         reader::{DEFAULT_LAYOUT_SRC, EngineSetup, load_layout_config},
+        rhai::{LayoutIntent, Rect, WMSlot},
     },
     ipc,
 };
@@ -39,9 +39,6 @@ pub struct WM<'a> {
 pub struct WMState {
     pub tags: [Tag; 8],
     pub active: usize,
-    pub first_keycode: u8,
-    pub keysyms: Vec<u32>,
-    pub syms_per_keycode: u8,
     pub engine: Engine,
     pub layout_ast: AST,
 }
@@ -57,9 +54,6 @@ impl WMState {
         Self {
             tags: Default::default(),
             active: 0,
-            first_keycode: Default::default(),
-            keysyms: Default::default(),
-            syms_per_keycode: Default::default(),
             engine,
             layout_ast: default_ast,
         }
@@ -108,16 +102,11 @@ pub enum WMAction {
     FocusPrevious,
     SwapNext,
     SwapPrevious,
-    Spawn(String, Vec<String>),
 }
 
 impl WMAction {
     pub fn execute(&self, wm: &mut WM) {
         match self {
-            WMAction::Spawn(cmd, args) => {
-                #[allow(clippy::zombie_processes)]
-                Command::new(cmd).args(args).spawn().unwrap();
-            }
             WMAction::Kill => {
                 if let Some(win) = wm.state.focused()
                     && wm.state.windows().contains(&win)
@@ -282,7 +271,7 @@ fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     load_layout_config(&mut wm_state).unwrap();
     let setup = conn.setup();
 
-    let mut wm = WM {
+    let wm = WM {
         conn,
         screen: setup.roots[screen_num].clone(),
         state: wm_state,

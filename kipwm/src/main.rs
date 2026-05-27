@@ -10,7 +10,7 @@ fn main() {
         libc::signal(libc::SIGCHLD, libc::SIG_IGN);
     }
 
-    load_wm_config();
+    let _ = load_wm_config();
 
-    // wm::run();
+    wm::run();
 }
