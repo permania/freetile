@@ -2,6 +2,7 @@ mod config;
 mod handler;
 mod ipc;
 
+use config::ksn_reader::load_wm_config;
 use handler::wm;
 
 fn main() {
@@ -9,5 +10,7 @@ fn main() {
         libc::signal(libc::SIGCHLD, libc::SIG_IGN);
     }
 
-    wm::run();
+    load_wm_config();
+
+    // wm::run();
 }

@@ -58,7 +58,7 @@ impl EngineSetup for Engine {
     }
 }
 
-pub fn load_config(wm_state: &mut WMState) -> Result<(), Box<dyn Error>> {
+pub fn load_layout_config(wm_state: &mut WMState) -> Result<(), Box<dyn Error>> {
     let file = read_to_string("ftrc.rhai");
 
     if let Ok(c) = file {

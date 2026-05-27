@@ -15,7 +15,7 @@ use crate::{
     config::layout::{
         layout::{LayoutIntent, Rect, WMSlot},
         reader,
-        reader::{DEFAULT_LAYOUT_SRC, EngineSetup, load_config},
+        reader::{DEFAULT_LAYOUT_SRC, EngineSetup, load_layout_config},
     },
     ipc,
 };
@@ -279,7 +279,7 @@ pub fn run() {
 
 fn setup_wm<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let mut wm_state = WMState::default();
-    load_config(&mut wm_state).unwrap();
+    load_layout_config(&mut wm_state).unwrap();
     let setup = conn.setup();
 
     let mut wm = WM {

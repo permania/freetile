@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fmt::Write, fs, path::Path};
 
 #[derive(Debug)]
 pub struct Config {
@@ -37,7 +37,7 @@ impl<'a> IntoIterator for &'a mut Config {
 }
 
 impl Config {
-    pub fn get_sections<T>(&self, section: T) -> Option<&Section>
+    pub fn get_section<T>(&self, section: T) -> Option<&Section>
     where
         T: AsRef<str>,
     {
@@ -49,6 +49,12 @@ impl Config {
 pub struct Section {
     pub entries: HashMap<String, Value>,
     pub scalars: Vec<Value>,
+}
+
+impl Section {
+    pub fn empty() -> Self {
+	Section { entries: HashMap::new(), scalars: Vec::new() }
+    }
 }
 
 impl IntoIterator for Section {
@@ -126,8 +132,11 @@ impl IntoIterator for Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for tagged in &self.0 {
-            write!(f, "{tagged}")?;
+        for (i, item) in self.0.iter().enumerate() {
+            if i != 0 {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", item)?;
         }
         Ok(())
     }
@@ -165,7 +174,7 @@ pub fn read_config<T>(path: T) -> Result<Config, std::io::Error>
 where
     T: AsRef<Path>,
 {
-    let config_string: String = fs::read_to_string(path).expect("failed to read config");
+    let config_string: String = fs::read_to_string(path)?;
 
     Ok(split_sections(config_string))
 }
