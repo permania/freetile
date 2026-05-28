@@ -19,7 +19,7 @@ enum Ops {
 
     /// Request for the WM to change window focus
     Focus {
-	/// Whether or not the focused window should follow the change in focus
+        /// Whether or not the focused window should follow the change in focus
         #[arg(long, short)]
         follow: bool,
 
@@ -29,14 +29,14 @@ enum Ops {
 
     /// Request for the WM to switch to a certain tag
     Tag {
-	/// Whether or not the focused window should be moved to the new tag
+        /// Whether or not the focused window should be moved to the new tag
         #[arg(long, short)]
         follow: bool,
 
-	/// The tag to switch to
+        /// The tag to switch to
         #[arg()]
         idx: usize,
-    }, 
+    },
 
     /// Debug: Send a malformed command packet to test error handling
     Bad,
@@ -83,7 +83,9 @@ fn send(path: &str, cmd: &[u8]) -> [u8; 1] {
     stream.write_all(cmd).expect("failed to write");
 
     let mut buf = [0u8; 1];
-    stream.read_exact(&mut buf).expect("failed to read response");
+    stream
+        .read_exact(&mut buf)
+        .expect("failed to read response");
 
     buf
 }

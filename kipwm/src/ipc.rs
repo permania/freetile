@@ -48,9 +48,9 @@ fn interpret(msg: Message) -> WMAction {
 }
 
 fn decode(buf: &[u8]) -> Result<Message, Response> {
-    let opcode = *buf.get(0).ok_or(Response::Bad)?;
+    let opcode = *buf.first().ok_or(Response::Bad)?;
 
-    let res = match opcode {
+    match opcode {
         0x01 => Ok(Message::Kill),
 
         0x02 => {
@@ -71,7 +71,5 @@ fn decode(buf: &[u8]) -> Result<Message, Response> {
         }
 
         _ => Err(Response::Bad),
-    };
-
-    res
+    }
 }

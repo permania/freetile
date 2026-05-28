@@ -9,7 +9,10 @@ use x11rb::{
 };
 
 use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
-use crate::{handler::wm::map_intent, ipc::{self, Response}};
+use crate::{
+    handler::wm::map_intent,
+    ipc::{self, Response},
+};
 
 pub fn event_loop(wm: &mut WM) {
     loop {
@@ -97,20 +100,20 @@ pub fn event_loop(wm: &mut WM) {
 
         match wm.ipc_listener.accept() {
             Ok((mut stream, _)) => {
-		let mut buf = [0u8; 3];
-		let n = stream.read(&mut buf).unwrap();
-		let buf = &buf[..n];
+                let mut buf = [0u8; 3];
+                let n = stream.read(&mut buf).unwrap();
+                let buf = &buf[..n];
 
-		match ipc::handle_message(&buf) {
-		    Ok(act) => {
-			act.execute(wm);
-			wm.conn.flush().unwrap();
-			stream.write_all(&[Response::Ok as u8]).unwrap();
-		    },
-		    Err(code) => {
-			stream.write_all(&[code as u8]).unwrap();
-		    },
-		}
+                match ipc::handle_message(buf) {
+                    Ok(act) => {
+                        act.execute(wm);
+                        wm.conn.flush().unwrap();
+                        stream.write_all(&[Response::Ok as u8]).unwrap();
+                    }
+                    Err(code) => {
+                        stream.write_all(&[code as u8]).unwrap();
+                    }
+                }
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(e) => eprintln!("ipc error: {e}"),
