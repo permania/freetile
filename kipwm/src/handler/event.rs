@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 use x11rb::{
     connection::Connection,
@@ -9,7 +9,7 @@ use x11rb::{
 };
 
 use super::wm::{WM, focus_and_warp, focus_window, is_mapped, retile};
-use crate::{handler::wm::map_intent, ipc};
+use crate::{handler::wm::map_intent, ipc::{self, Response}};
 
 pub fn event_loop(wm: &mut WM) {
     loop {
@@ -97,17 +97,20 @@ pub fn event_loop(wm: &mut WM) {
 
         match wm.ipc_listener.accept() {
             Ok((mut stream, _)) => {
-                let mut buf = Vec::new();
-                stream.read_to_end(&mut buf).unwrap();
-                let action = ipc::handle_message(&buf);
-                dbg!(&action);
+		let mut buf = [0u8; 3];
+		let n = stream.read(&mut buf).unwrap();
+		let buf = &buf[..n];
 
-                if let Some(a) = action {
-                    a.execute(wm);
-                    wm.conn.flush().unwrap()
-                } else {
-                    eprintln!("bad ipc request!");
-                }
+		match ipc::handle_message(&buf) {
+		    Ok(act) => {
+			act.execute(wm);
+			wm.conn.flush().unwrap();
+			stream.write_all(&[Response::Ok as u8]).unwrap();
+		    },
+		    Err(code) => {
+			stream.write_all(&[code as u8]).unwrap();
+		    },
+		}
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(e) => eprintln!("ipc error: {e}"),

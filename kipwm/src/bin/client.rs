@@ -1,4 +1,7 @@
-use std::{io::Write, os::unix::net::UnixStream};
+use std::{
+    io::{Read, Write},
+    os::unix::net::UnixStream,
+};
 
 use clap::{Parser, Subcommand, ValueEnum};
 
@@ -11,9 +14,12 @@ struct CliArgs {
 
 #[derive(Subcommand, Debug)]
 enum Ops {
+    /// Request for the WM to kill a window
     Kill,
 
+    /// Request for the WM to change window focus
     Focus {
+	/// Whether or not the focused window should follow the change in focus
         #[arg(long, short)]
         follow: bool,
 
@@ -21,13 +27,19 @@ enum Ops {
         action: FocusOpt,
     },
 
+    /// Request for the WM to switch to a certain tag
     Tag {
+	/// Whether or not the focused window should be moved to the new tag
         #[arg(long, short)]
         follow: bool,
 
+	/// The tag to switch to
         #[arg()]
         idx: usize,
-    },
+    }, 
+
+    /// Debug: Send a malformed command packet to test error handling
+    Bad,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -56,15 +68,22 @@ fn main() {
                 let idx = u8::try_from(idx).expect("tag out of range (0-255)");
                 res.push(idx)
             }
+            Ops::Bad => res.push(0xFF),
         }
         res
     };
 
-    send("/tmp/kipwm.sock", &cmd);
+    let resp = send("/tmp/kipwm.sock", &cmd);
+    eprintln!("{:?}", resp);
 }
 
-fn send(path: &str, cmd: &[u8]) {
+fn send(path: &str, cmd: &[u8]) -> [u8; 1] {
     let mut stream = UnixStream::connect(path).expect("failed to connect");
 
     stream.write_all(cmd).expect("failed to write");
+
+    let mut buf = [0u8; 1];
+    stream.read_exact(&mut buf).expect("failed to read response");
+
+    buf
 }

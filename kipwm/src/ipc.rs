@@ -9,10 +9,11 @@ enum Message {
     Follow { tag: u8 },
 }
 
+#[derive(Debug)]
 #[repr(u8)]
-enum Response {
+pub enum Response {
     Ok = 0x00,
-    Invalid = 0x01,
+    Bad = 0x01,
     NoLayout = 0x02,
 }
 
@@ -24,9 +25,9 @@ pub fn open_socket() -> UnixListener {
     listener
 }
 
-pub fn handle_message(buf: &[u8]) -> Option<WMAction> {
+pub fn handle_message(buf: &[u8]) -> Result<WMAction, Response> {
     let msg = decode(buf)?;
-    Some(interpret(msg))
+    Ok(interpret(msg))
 }
 
 fn interpret(msg: Message) -> WMAction {
@@ -46,19 +47,31 @@ fn interpret(msg: Message) -> WMAction {
     }
 }
 
-fn decode(buf: &[u8]) -> Option<Message> {
-    match buf.first()? {
-        0x01 => Some(Message::Kill),
+fn decode(buf: &[u8]) -> Result<Message, Response> {
+    let opcode = *buf.get(0).ok_or(Response::Bad)?;
 
-        0x02 => Some(Message::Focus {
-            dir: *buf.get(1)?,
-            mode: *buf.get(2)?,
-        }),
+    let res = match opcode {
+        0x01 => Ok(Message::Kill),
 
-        0x03 => Some(Message::Switch { tag: *buf.get(1)? }),
+        0x02 => {
+            let dir = *buf.get(1).ok_or(Response::Bad)?;
+            let mode = *buf.get(2).ok_or(Response::Bad)?;
 
-        0x04 => Some(Message::Follow { tag: *buf.get(1)? }),
+            Ok(Message::Focus { dir, mode })
+        }
 
-        _ => None,
-    }
+        0x03 => {
+            let tag = *buf.get(1).ok_or(Response::Bad)?;
+            Ok(Message::Switch { tag })
+        }
+
+        0x04 => {
+            let tag = *buf.get(1).ok_or(Response::Bad)?;
+            Ok(Message::Follow { tag })
+        }
+
+        _ => Err(Response::Bad),
+    };
+
+    res
 }
