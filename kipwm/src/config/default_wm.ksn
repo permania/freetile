@@ -1,3 +1,6 @@
 layouts:
     monadtall wrapped_master
     ratio ratiotile
+
+autostart:
+    +alacritty

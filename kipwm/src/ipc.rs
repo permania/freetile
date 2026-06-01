@@ -28,7 +28,7 @@ pub fn open_socket() -> UnixListener {
 
 pub fn handle_message(buf: &[u8], wm: &WM) -> Result<WMAction, Response> {
     let msg = decode(buf)?;
-    Ok(interpret(msg, wm)?)
+    interpret(msg, wm)
 }
 
 fn interpret(msg: Message, wm: &WM) -> Result<WMAction, Response> {
@@ -46,10 +46,11 @@ fn interpret(msg: Message, wm: &WM) -> Result<WMAction, Response> {
         Message::Switch { tag } => Ok(WMAction::TagSwitch(tag as usize)),
         Message::Follow { tag } => Ok(WMAction::TagWindowSwitch(tag as usize)),
         Message::Layout { name } => {
-	    if !wm.layouts.contains_key(&name) {
-		return Err(Response::NoLayout)
-	    }
-	    Ok(WMAction::SwitchLayout(name))},
+            if !wm.layouts.contains_key(&name) {
+                return Err(Response::NoLayout);
+            }
+            Ok(WMAction::SwitchLayout(name))
+        }
     }
 }
 
