@@ -1,13 +1,16 @@
 use std::{error::Error, fs::read_to_string};
 
-use rhai::Engine;
+use indexmap::IndexMap;
+use kiplib::config::rc::Config;
+use rhai::{AST, Engine};
 
 use crate::{
-    config::layout::rhai::{Dir, WMSlot},
-    handler::wm::WMState,
+    config::{
+        defaults::{DEFAULT_LAYOUT_SRC, LAYOUT_CONFIG_PATH},
+        layout::rhai::{Dir, WMSlot},
+    },
+    handler::wm::{LayoutEntry, WMState},
 };
-
-pub const DEFAULT_LAYOUT_SRC: &str = include_str!("default.rhai");
 
 pub fn master(_n: i64) -> WMSlot {
     WMSlot::Split {
@@ -58,12 +61,46 @@ impl EngineSetup for Engine {
     }
 }
 
-pub fn load_layout_config(wm_state: &mut WMState) -> Result<(), Box<dyn Error>> {
-    let file = read_to_string("ftrc.rhai");
+pub fn load_layout_config(
+    wm_state: &mut WMState,
+    config: &Config,
+) -> Result<(AST, IndexMap<String, LayoutEntry>), Box<dyn Error>> {
+    let file = if let Ok(f) = read_to_string(LAYOUT_CONFIG_PATH) {
+        f
+    } else {
+        DEFAULT_LAYOUT_SRC.to_string()
+    };
 
-    if let Ok(c) = file {
-        wm_state.layout_ast = wm_state.engine.compile(c)?;
+    let ast = wm_state.engine.compile(file)?;
+
+    dbg!(&ast);
+    dbg!(&config);
+
+    let layouts_config = config
+        .get_section("layouts")
+        .expect("layout field is required");
+
+    dbg!(&layouts_config);
+
+    let mut layouts = IndexMap::new();
+
+    for (layout_name, func_name) in layouts_config {
+        let func_name = func_name.to_string();
+        let valid = ast
+            .iter_functions()
+            .any(|f| f.name == func_name && f.params.len() == 1);
+
+        if !valid {
+            return Err(format!("invalid layout: {}", func_name).into());
+        }
+
+        layouts.insert(
+            layout_name.clone(),
+            LayoutEntry {
+                func_name: func_name.to_string(),
+            },
+        );
     }
 
-    Ok(())
+    Ok((ast, layouts))
 }

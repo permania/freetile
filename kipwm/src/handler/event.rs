@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub fn event_loop(wm: &mut WM) {
+    dbg!("enter event loop");
     loop {
         while let Some(event) = wm.conn.poll_for_event().unwrap() {
             match event {
@@ -100,11 +101,11 @@ pub fn event_loop(wm: &mut WM) {
 
         match wm.ipc_listener.accept() {
             Ok((mut stream, _)) => {
-                let mut buf = [0u8; 3];
+                let mut buf = [0u8; 1024];
                 let n = stream.read(&mut buf).unwrap();
                 let buf = &buf[..n];
 
-                match ipc::handle_message(buf) {
+                match ipc::handle_message(buf, wm) {
                     Ok(act) => {
                         act.execute(wm);
                         wm.conn.flush().unwrap();

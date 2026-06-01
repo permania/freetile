@@ -1,15 +1,17 @@
 use core::fmt;
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
+
+use indexmap::IndexMap;
 
 #[derive(Debug)]
 pub struct Config {
-    pub sections: HashMap<String, Section>,
+    pub sections: IndexMap<String, Section>,
 }
 
 impl IntoIterator for Config {
     type Item = (String, Section);
 
-    type IntoIter = std::collections::hash_map::IntoIter<String, Section>;
+    type IntoIter = indexmap::map::IntoIter<String, Section>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.sections.into_iter()
@@ -19,7 +21,7 @@ impl IntoIterator for Config {
 impl<'a> IntoIterator for &'a Config {
     type Item = (&'a String, &'a Section);
 
-    type IntoIter = std::collections::hash_map::Iter<'a, String, Section>;
+    type IntoIter = indexmap::map::Iter<'a, String, Section>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.sections.iter()
@@ -29,7 +31,7 @@ impl<'a> IntoIterator for &'a Config {
 impl<'a> IntoIterator for &'a mut Config {
     type Item = (&'a String, &'a mut Section);
 
-    type IntoIter = std::collections::hash_map::IterMut<'a, String, Section>;
+    type IntoIter = indexmap::map::IterMut<'a, String, Section>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.sections.iter_mut()
@@ -47,14 +49,14 @@ impl Config {
 
 #[derive(Debug)]
 pub struct Section {
-    pub entries: HashMap<String, Value>,
+    pub entries: IndexMap<String, Value>,
     pub scalars: Vec<Value>,
 }
 
 impl Section {
     pub fn empty() -> Self {
         Section {
-            entries: HashMap::new(),
+            entries: IndexMap::new(),
             scalars: Vec::new(),
         }
     }
@@ -62,7 +64,7 @@ impl Section {
 
 impl IntoIterator for Section {
     type Item = (String, Value);
-    type IntoIter = std::collections::hash_map::IntoIter<String, Value>;
+    type IntoIter = indexmap::map::IntoIter<String, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.into_iter()
@@ -71,7 +73,7 @@ impl IntoIterator for Section {
 
 impl<'a> IntoIterator for &'a Section {
     type Item = (&'a String, &'a Value);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, Value>;
+    type IntoIter = indexmap::map::Iter<'a, String, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.iter()
@@ -80,7 +82,7 @@ impl<'a> IntoIterator for &'a Section {
 
 impl<'a> IntoIterator for &'a mut Section {
     type Item = (&'a String, &'a mut Value);
-    type IntoIter = std::collections::hash_map::IterMut<'a, String, Value>;
+    type IntoIter = indexmap::map::IterMut<'a, String, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.iter_mut()
@@ -173,7 +175,7 @@ impl Tagged {
     // }
 }
 
-pub fn read_config<T>(path: T) -> Result<Config, std::io::Error>
+pub fn read_config_from_path<T>(path: T) -> Result<Config, std::io::Error>
 where
     T: AsRef<Path>,
 {
@@ -182,9 +184,18 @@ where
     Ok(split_sections(config_string))
 }
 
+pub fn read_config_from_src<T>(src: T) -> Config
+where
+    T: AsRef<str>,
+{
+    let config_string: String = src.as_ref().to_string();
+
+    split_sections(config_string)
+}
+
 fn split_sections(config_string: String) -> Config {
     let mut current_section: Option<String> = None;
-    let mut sections: HashMap<String, Section> = HashMap::new();
+    let mut sections: IndexMap<String, Section> = IndexMap::new();
     let trim = config_string.trim();
 
     for line in trim.lines() {
@@ -219,7 +230,7 @@ fn split_sections(config_string: String) -> Config {
             let name = left.to_string();
 
             sections.entry(name.clone()).or_insert_with(|| Section {
-                entries: HashMap::new(),
+                entries: IndexMap::new(),
                 scalars: Vec::new(),
             });
 

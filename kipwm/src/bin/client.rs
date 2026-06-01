@@ -38,6 +38,12 @@ enum Ops {
         idx: usize,
     },
 
+    /// Request for the WM to switch to a certain layout
+    Layout {
+        #[arg()]
+        name: String,
+    },
+
     /// Debug: Send a malformed command packet to test error handling
     Bad,
 }
@@ -68,6 +74,10 @@ fn main() {
                 let idx = u8::try_from(idx).expect("tag out of range (0-255)");
                 res.push(idx)
             }
+            Ops::Layout { name } => {
+                res.push(0x05);
+                push_string(&mut res, &name);
+            }
             Ops::Bad => res.push(0xFF),
         }
         res
@@ -78,6 +88,8 @@ fn main() {
 }
 
 fn send(path: &str, cmd: &[u8]) -> [u8; 1] {
+    dbg!(&cmd);
+
     let mut stream = UnixStream::connect(path).expect("failed to connect");
 
     stream.write_all(cmd).expect("failed to write");
@@ -88,4 +100,12 @@ fn send(path: &str, cmd: &[u8]) -> [u8; 1] {
         .expect("failed to read response");
 
     buf
+}
+
+fn push_string(res: &mut Vec<u8>, s: &str) {
+    let bytes = s.as_bytes();
+    let len = bytes.len() as u16;
+
+    res.extend_from_slice(&len.to_le_bytes());
+    res.extend_from_slice(bytes);
 }

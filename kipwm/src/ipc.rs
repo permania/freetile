@@ -1,12 +1,13 @@
 use std::os::unix::net::UnixListener;
 
-use crate::handler::wm::WMAction;
+use crate::handler::wm::{WM, WMAction};
 
 enum Message {
     Kill,
     Focus { dir: u8, mode: u8 },
     Switch { tag: u8 },
     Follow { tag: u8 },
+    Layout { name: String },
 }
 
 #[derive(Debug)]
@@ -25,25 +26,30 @@ pub fn open_socket() -> UnixListener {
     listener
 }
 
-pub fn handle_message(buf: &[u8]) -> Result<WMAction, Response> {
+pub fn handle_message(buf: &[u8], wm: &WM) -> Result<WMAction, Response> {
     let msg = decode(buf)?;
-    Ok(interpret(msg))
+    Ok(interpret(msg, wm)?)
 }
 
-fn interpret(msg: Message) -> WMAction {
+fn interpret(msg: Message, wm: &WM) -> Result<WMAction, Response> {
     match msg {
-        Message::Kill => WMAction::Kill,
+        Message::Kill => Ok(WMAction::Kill),
 
         Message::Focus { dir, mode } => match (dir, mode) {
-            (0, 0) => WMAction::FocusPrevious,
-            (1, 0) => WMAction::FocusNext,
-            (0, 1) => WMAction::SwapPrevious,
-            (1, 1) => WMAction::SwapNext,
+            (0, 0) => Ok(WMAction::FocusPrevious),
+            (1, 0) => Ok(WMAction::FocusNext),
+            (0, 1) => Ok(WMAction::SwapPrevious),
+            (1, 1) => Ok(WMAction::SwapNext),
             _ => unreachable!(),
         },
 
-        Message::Switch { tag } => WMAction::TagSwitch(tag as usize),
-        Message::Follow { tag } => WMAction::TagWindowSwitch(tag as usize),
+        Message::Switch { tag } => Ok(WMAction::TagSwitch(tag as usize)),
+        Message::Follow { tag } => Ok(WMAction::TagWindowSwitch(tag as usize)),
+        Message::Layout { name } => {
+	    if !wm.layouts.contains_key(&name) {
+		return Err(Response::NoLayout)
+	    }
+	    Ok(WMAction::SwitchLayout(name))},
     }
 }
 
@@ -68,6 +74,19 @@ fn decode(buf: &[u8]) -> Result<Message, Response> {
         0x04 => {
             let tag = *buf.get(1).ok_or(Response::Bad)?;
             Ok(Message::Follow { tag })
+        }
+
+        0x05 => {
+            dbg!(&buf);
+            let len = u16::from_le_bytes([buf[1], buf[2]]) as usize;
+            let start = 3;
+            let end = start + len;
+            let name_bytes = buf.get(start..end).ok_or(Response::Bad)?;
+            let name = std::str::from_utf8(name_bytes).map_err(|_| Response::Bad)?;
+
+            Ok(Message::Layout {
+                name: name.to_string(),
+            })
         }
 
         _ => Err(Response::Bad),

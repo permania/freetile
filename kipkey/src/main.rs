@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         layers: HashMap::<String, HashMap<Keybind, Action>>::new(),
     };
 
-    let config = rc::read_config("kipkeyrc.ksn")?;
+    let config = rc::read_config_from_path("kipkeyrc.ksn")?;
 
     for (s_name, section) in &config {
         if s_name != VARS_SECTION {
