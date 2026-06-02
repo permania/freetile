@@ -1,15 +1,9 @@
 use std::process::Command;
 
 use hex_color::HexColor;
-use indexmap::IndexMap;
 use kiplib::config::rc::{self, Config};
-use rhai::AST;
 
-use super::{
-    defaults::{AUTOSTART_SECTION, DEFAULT_CONFIG_SRC, WM_CONFIG_PATH},
-    layout::reader::load_layout_config,
-};
-use crate::handler::wm::{LayoutEntry, WMState};
+use super::defaults::{AUTOSTART_SECTION, DEFAULT_CONFIG_SRC, WM_CONFIG_PATH};
 
 pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     let config = if let Ok(c) = rc::read_config_from_path(WM_CONFIG_PATH) {
@@ -19,8 +13,6 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     };
 
     println!("{:x?}", config.active_border_color());
-
-    // apply_config(&config);
 
     autostart(&config);
 

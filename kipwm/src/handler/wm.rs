@@ -310,7 +310,7 @@ fn setup_wm_struct<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
 
         dbg!(&layouts);
 
-        return WM {
+        WM {
             conn,
             screen: setup.roots[screen_num].clone(),
             state: wm_state,
@@ -318,7 +318,7 @@ fn setup_wm_struct<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
             ipc_listener: ipc::open_socket(),
             layouts,
             config,
-        };
+        }
     } else {
         todo!()
     }

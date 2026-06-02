@@ -32,13 +32,13 @@ base:
     s-r ?run
     s-w !wm
 
-    s-space @launcher
+    s-space /home/corn/documents/git/kip/target/debug/kipc layout next
 
 run:
     b @browser
     n @terminal
     e @editor
-    space @launcher
+    r @launcher
     Escape !base
 
 wm:

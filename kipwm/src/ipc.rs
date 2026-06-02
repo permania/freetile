@@ -51,13 +51,11 @@ fn interpret(msg: Message, wm: &WM) -> Result<WMAction, Response> {
                 return Err(Response::NoLayout);
             }
             Ok(WMAction::SwitchLayout(name))
+        }
+        Message::RelLayout { prev } => match prev {
+            false => Ok(WMAction::NextLayout),
+            true => Ok(WMAction::PrevLayout),
         },
-	Message::RelLayout {prev } => {
-	    match prev {
-		false => Ok(WMAction::NextLayout),
-		true => Ok(WMAction::PrevLayout),
-    	    }
-	}
     }
 }
 
