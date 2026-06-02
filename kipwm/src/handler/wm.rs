@@ -396,7 +396,12 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
         None => reader::master(0_i64),
     };
 
-    let rects = slot.compute(n, bounds, 8, 8);
+    let rects = slot.compute(
+        n,
+        bounds,
+        wm.config.gap_inner().unwrap_or(0),
+        wm.config.gap_outer().unwrap_or(0),
+    );
     let windows = wm.state.windows().to_vec();
     let len = windows.len().min(rects.len());
 
@@ -426,7 +431,7 @@ pub fn map_intent(wm: &mut WM, intent: LayoutIntent) {
 }
 
 fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
-    let border_width = 3u32;
+    let border_width = wm.config.border_weight().unwrap_or(0);
 
     if w == 0 || h == 0 {
         return;

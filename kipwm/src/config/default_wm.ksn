@@ -3,7 +3,13 @@ layouts:
     ratio ratiotile
 
 border:
-    color #ff240c
+    active_color #ff240cff
+    inactive_color #444444ff
+    weight 4
+
+gaps:
+    inner 8
+    outer 10
 
 autostart:
     +alacritty
