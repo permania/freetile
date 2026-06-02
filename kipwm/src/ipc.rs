@@ -8,6 +8,7 @@ enum Message {
     Switch { tag: u8 },
     Follow { tag: u8 },
     Layout { name: String },
+    RelLayout { prev: bool },
 }
 
 #[derive(Debug)]
@@ -50,7 +51,13 @@ fn interpret(msg: Message, wm: &WM) -> Result<WMAction, Response> {
                 return Err(Response::NoLayout);
             }
             Ok(WMAction::SwitchLayout(name))
-        }
+        },
+	Message::RelLayout {prev } => {
+	    match prev {
+		false => Ok(WMAction::NextLayout),
+		true => Ok(WMAction::PrevLayout),
+    	    }
+	}
     }
 }
 
@@ -78,7 +85,6 @@ fn decode(buf: &[u8]) -> Result<Message, Response> {
         }
 
         0x05 => {
-            dbg!(&buf);
             let len = u16::from_le_bytes([buf[1], buf[2]]) as usize;
             let start = 3;
             let end = start + len;
@@ -88,6 +94,16 @@ fn decode(buf: &[u8]) -> Result<Message, Response> {
             Ok(Message::Layout {
                 name: name.to_string(),
             })
+        }
+
+        0x06 => {
+            let prev_flag = buf.get(1).ok_or(Response::Bad)?;
+
+            match *prev_flag {
+                0x00u8 => Ok(Message::RelLayout { prev: false }),
+                0x01u8 => Ok(Message::RelLayout { prev: true }),
+                _ => Err(Response::Bad),
+            }
         }
 
         _ => Err(Response::Bad),

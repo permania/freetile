@@ -73,7 +73,6 @@ pub fn load_layout_config(
 
     let ast = wm_state.engine.compile(file)?;
 
-    dbg!(&ast);
     dbg!(&config);
 
     let layouts_config = config

@@ -2,5 +2,8 @@ layouts:
     monadtall wrapped_master
     ratio ratiotile
 
+border:
+    color #ff240c
+
 autostart:
     +alacritty

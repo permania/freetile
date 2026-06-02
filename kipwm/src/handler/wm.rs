@@ -1,6 +1,7 @@
 use std::os::unix::net::UnixListener;
 
 use indexmap::IndexMap;
+use kiplib::config::rc::Config;
 use rhai::{AST, Dynamic, Engine, Scope};
 use x11rb::{
     connection::Connection,
@@ -15,9 +16,9 @@ use super::event::event_loop;
 use crate::{
     config::{
         defaults::DEFAULT_LAYOUT_SRC,
-        ksn_reader::load_config,
+        ksn_reader::{WMConfig, load_config},
         layout::{
-            reader::{self, EngineSetup},
+            reader::{self, EngineSetup, load_layout_config},
             rhai::{LayoutIntent, Rect, WMSlot},
         },
     },
@@ -32,7 +33,7 @@ pub struct Tag {
     focused: Option<Window>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LayoutEntry {
     pub func_name: String,
 }
@@ -44,6 +45,7 @@ pub struct WM<'a> {
     pub ignore_unmaps: usize,
     pub ipc_listener: UnixListener,
     pub layouts: IndexMap<String, LayoutEntry>,
+    pub config: Config,
 }
 
 pub struct WMState {
@@ -126,6 +128,8 @@ pub enum WMAction {
     SwapNext,
     SwapPrevious,
     SwitchLayout(String),
+    NextLayout,
+    PrevLayout,
 }
 
 impl WMAction {
@@ -280,6 +284,12 @@ impl WMAction {
                 switch_layout(wm, name);
                 eprintln!("active_layout now = {}", wm.state.active_layout);
             }
+            WMAction::NextLayout => {
+                next_layout(wm);
+            }
+            WMAction::PrevLayout => {
+                prev_layout(wm);
+            }
         }
     }
 }
@@ -293,19 +303,24 @@ pub fn run() {
 
 fn setup_wm_struct<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let mut wm_state = WMState::default();
-    let (ast, layouts) = load_config(&mut wm_state).unwrap();
-    wm_state.layout_ast = ast;
-    let setup = conn.setup();
+    let config = load_config().unwrap();
+    if let Ok((ast, layouts)) = load_layout_config(&mut wm_state, &config) {
+        wm_state.layout_ast = ast;
+        let setup = conn.setup();
 
-    dbg!(&layouts);
+        dbg!(&layouts);
 
-    WM {
-        conn,
-        screen: setup.roots[screen_num].clone(),
-        state: wm_state,
-        ignore_unmaps: 0usize,
-        ipc_listener: ipc::open_socket(),
-        layouts,
+        return WM {
+            conn,
+            screen: setup.roots[screen_num].clone(),
+            state: wm_state,
+            ignore_unmaps: 0usize,
+            ipc_listener: ipc::open_socket(),
+            layouts,
+            config,
+        };
+    } else {
+        todo!()
     }
 }
 
@@ -450,6 +465,36 @@ where
     map_intent(wm, intent);
 }
 
+pub fn next_layout(wm: &mut WM) {
+    let keys: Vec<String> = wm.layouts.keys().cloned().collect();
+
+    if !keys.is_empty() {
+        let i = keys
+            .iter()
+            .position(|k| k == &wm.state.active_layout)
+            .unwrap_or(0);
+
+        let next_key = &keys[wrap_next(i, keys.len())];
+
+        switch_layout(wm, next_key);
+    }
+}
+
+pub fn prev_layout(wm: &mut WM) {
+    let keys: Vec<String> = wm.layouts.keys().cloned().collect();
+
+    if !keys.is_empty() {
+        let i = keys
+            .iter()
+            .position(|k| k == &wm.state.active_layout)
+            .unwrap_or(0);
+
+        let next_key = &keys[wrap_prev(i, keys.len())];
+
+        switch_layout(wm, next_key);
+    }
+}
+
 pub fn focus_and_warp(wm: &mut WM, window: Window) {
     focus_window(wm, window);
     warp_to_window(wm, window);
@@ -468,7 +513,8 @@ pub fn focus_window(wm: &mut WM, window: Window) {
     wm.conn
         .change_window_attributes(
             window,
-            &ChangeWindowAttributesAux::new().border_pixel(0xff8aadf4),
+            &ChangeWindowAttributesAux::new()
+                .border_pixel(wm.config.active_border_color().unwrap_or(0xff8aadf4)),
         )
         .unwrap();
 

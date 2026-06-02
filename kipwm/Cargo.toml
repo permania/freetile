@@ -12,6 +12,7 @@ x11rb = { version = "0.13.2", features = ["xkb"] }
 kiplib = { path = "../kiplib" }
 csscolorparser = "0.8.3"
 indexmap = "2.14.0"
+hex_color = "3.0.0"
 
 [[bin]]
 name = "kipwm"

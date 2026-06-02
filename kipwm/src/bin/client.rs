@@ -38,14 +38,29 @@ enum Ops {
         idx: usize,
     },
 
-    /// Request for the WM to switch to a certain layout
+    /// Request for the WM to switch layouts
     Layout {
-        #[arg()]
-        name: String,
+        #[clap(subcommand)]
+        op: LayoutOps,
     },
 
     /// Debug: Send a malformed command packet to test error handling
     Bad,
+}
+
+#[derive(Subcommand, Debug)]
+enum LayoutOps {
+    /// Request for the WM to switch to a certain layout
+    Set {
+        #[arg()]
+        name: String,
+    },
+
+    /// Request for the WM to switch to the next layout
+    Next,
+
+    /// Request for the WM to switch to the previous layout
+    Prev,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -74,10 +89,18 @@ fn main() {
                 let idx = u8::try_from(idx).expect("tag out of range (0-255)");
                 res.push(idx)
             }
-            Ops::Layout { name } => {
-                res.push(0x05);
-                push_string(&mut res, &name);
-            }
+            Ops::Layout { op } => match op {
+                LayoutOps::Set { name } => {
+                    res.push(0x05);
+                    push_string(&mut res, &name);
+                }
+                LayoutOps::Next => {
+                    res.extend([0x06, 0x00]);
+                }
+                LayoutOps::Prev => {
+                    res.extend([0x06, 0x01]);
+                }
+            },
             Ops::Bad => res.push(0xFF),
         }
         res
@@ -85,6 +108,7 @@ fn main() {
 
     let resp = send("/tmp/kipwm.sock", &cmd);
     eprintln!("{:?}", resp);
+    std::process::exit(resp[0].into());
 }
 
 fn send(path: &str, cmd: &[u8]) -> [u8; 1] {
