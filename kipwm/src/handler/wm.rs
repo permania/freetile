@@ -510,7 +510,8 @@ pub fn focus_window(wm: &mut WM, window: Window) {
         wm.conn
             .change_window_attributes(
                 prev,
-                &ChangeWindowAttributesAux::new().border_pixel(0xff444444),
+                &ChangeWindowAttributesAux::new()
+                    .border_pixel(wm.config.inactive_border_color().unwrap_or(0xff444444)),
             )
             .unwrap();
     }

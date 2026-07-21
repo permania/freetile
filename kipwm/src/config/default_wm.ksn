@@ -3,7 +3,7 @@ layouts:
     ratio ratiotile
 
 border:
-    active_color #ff240cff
+    active_color #a4b887ff
     inactive_color #444444ff
     weight 4
 
@@ -13,3 +13,4 @@ gaps:
 
 autostart:
     +alacritty
+    +nitrogen --restore

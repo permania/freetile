@@ -42,7 +42,7 @@ run:
     Escape !base
 
 wm:
-    space @launcher
+    r @launcher
 
     a /home/corn/documents/git/kip/target/debug/kipc tag 0
     s /home/corn/documents/git/kip/target/debug/kipc tag 1

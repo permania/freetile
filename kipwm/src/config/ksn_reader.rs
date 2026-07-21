@@ -12,8 +12,6 @@ pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
         rc::read_config_from_src(DEFAULT_CONFIG_SRC)
     };
 
-    println!("{:x?}", config.active_border_color());
-
     autostart(&config);
 
     Ok(config)
