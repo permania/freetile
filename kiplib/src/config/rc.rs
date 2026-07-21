@@ -10,7 +10,6 @@ pub struct Config {
 
 impl IntoIterator for Config {
     type Item = (String, Section);
-
     type IntoIter = indexmap::map::IntoIter<String, Section>;
 
     fn into_iter(self) -> Self::IntoIter {
