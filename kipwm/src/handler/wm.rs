@@ -77,8 +77,7 @@ impl WMState {
         Self {
             tags: Default::default(),
             active_tag: 0,
-            // TODO: read this value from config
-            active_layout: String::from("monadtall"),
+            active_layout: String::new(),
             engine,
             layout_ast: default_ast,
         }
@@ -306,6 +305,12 @@ fn setup_wm_struct<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
     let config = load_config().unwrap();
     if let Ok((ast, layouts)) = load_layout_config(&mut wm_state, &config) {
         wm_state.layout_ast = ast;
+        wm_state.active_layout = layouts
+            .keys()
+            .next()
+            .cloned()
+            .expect("no valid layouts found in layout config");
+
         let setup = conn.setup();
 
         dbg!(&layouts);

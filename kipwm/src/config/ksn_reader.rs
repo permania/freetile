@@ -34,7 +34,6 @@ pub(crate) trait WMConfig {
     fn border_weight(&self) -> Option<u32>;
     fn gap_inner(&self) -> Option<u32>;
     fn gap_outer(&self) -> Option<u32>;
-    fn top_layout(&self);
 }
 
 impl WMConfig for Config {
@@ -96,9 +95,5 @@ impl WMConfig for Config {
 
         let s = value.to_string();
         s.trim().parse::<u32>().ok()
-    }
-
-    fn top_layout(&self) {
-        todo!()
     }
 }
