@@ -115,6 +115,10 @@ impl KipkeyState {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    unsafe {
+        libc::signal(libc::SIGCHLD, libc::SIG_IGN);
+    }
+
     let mut vars = HashMap::<String, rc::Value>::new();
 
     let mut state = KipkeyState {

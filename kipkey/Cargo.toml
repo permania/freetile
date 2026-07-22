@@ -9,3 +9,4 @@ x11rb = "0.13.2"
 xkbcommon = "0.9.0"
 kiplib = { path = "../kiplib" }
 bitflags = "2.11.1"
+libc = "0.2.189"
