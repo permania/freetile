@@ -4,6 +4,7 @@ use std::{
 };
 
 use nix::{
+    errno::Errno,
     poll::PollTimeout,
     sys::epoll::{Epoll, EpollCreateFlags, EpollEvent, EpollFlags},
 };
@@ -143,9 +144,13 @@ pub fn event_loop(wm: &mut WM) {
             Err(e) => eprintln!("ipc error: {e}"),
         }
 
-        epoll
-            .wait(&mut events, PollTimeout::NONE)
-            .expect("Epoll wait failed");
+        loop {
+            match epoll.wait(&mut events, PollTimeout::NONE) {
+                Ok(_) => break,
+                Err(Errno::EINTR) => continue,
+                Err(e) => panic!("Epoll wait failed: {e}"),
+            }
+        }
     }
     // loop {
     //     while let Some(event) = wm.conn.poll_for_event().unwrap() {
