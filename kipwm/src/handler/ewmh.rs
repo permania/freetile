@@ -1,15 +1,17 @@
-use x11rb::{connection::Connection, protocol::xproto::{Atom, AtomEnum, ConnectionExt, Window}};
+use x11rb::{
+    connection::Connection,
+    protocol::xproto::{Atom, AtomEnum, ConnectionExt, Window},
+};
 
-// TODO: use these on wm startup
-struct Atoms {
-    wm_protocols: Atom,
-    wm_delete_window: Atom,
-    net_wm_window_type: Atom,
-    net_wm_window_type_dock: Atom,
+pub struct Atoms {
+    pub wm_protocols: Atom,
+    pub wm_delete_window: Atom,
+    pub net_wm_window_type: Atom,
+    pub net_wm_window_type_dock: Atom,
 }
 
 impl Atoms {
-    fn new(conn: &impl Connection) -> Self {
+    pub fn new(conn: &impl Connection) -> Self {
         Self {
             wm_protocols: intern(conn, b"WM_PROTOCOLS"),
             wm_delete_window: intern(conn, b"WM_DELETE_WINDOW"),
@@ -35,4 +37,3 @@ pub fn atom_in_property(
 pub fn intern(conn: &impl Connection, name: &[u8]) -> Atom {
     conn.intern_atom(false, name).unwrap().reply().unwrap().atom
 }
-

@@ -1,6 +1,6 @@
 use std::os::unix::net::UnixListener;
 
-use crate::handler::wm::{WM, WMAction};
+use crate::handler::wm::{WM, action::WMAction};
 
 enum Message {
     Kill,

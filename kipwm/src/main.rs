@@ -9,5 +9,5 @@ fn main() {
         libc::signal(libc::SIGCHLD, libc::SIG_IGN);
     }
 
-    wm::run();
+    wm::setup::run();
 }
