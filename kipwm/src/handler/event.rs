@@ -60,6 +60,41 @@ pub fn event_loop(wm: &mut WM) {
                         continue;
                     }
 
+                    let net_wm_window_type = wm
+                        .conn
+                        .intern_atom(false, b"_NET_WM_WINDOW_TYPE")
+                        .unwrap()
+                        .reply()
+                        .unwrap()
+                        .atom;
+                    let net_wm_window_type_dock = wm
+                        .conn
+                        .intern_atom(false, b"_NET_WM_WINDOW_TYPE_DOCK")
+                        .unwrap()
+                        .reply()
+                        .unwrap()
+                        .atom;
+
+                    let is_dock = wm
+                        .conn
+                        .get_property(false, window, net_wm_window_type, AtomEnum::ATOM, 0, 32)
+                        .ok()
+                        .and_then(|c| c.reply().ok())
+                        .map(|reply| {
+                            reply
+                                .value32()
+                                .into_iter()
+                                .flatten()
+                                .any(|a| a == net_wm_window_type_dock)
+                        })
+                        .unwrap_or(false);
+
+                    if is_dock {
+                        wm.conn.map_window(window).unwrap();
+                        wm.conn.flush().unwrap();
+                        continue;
+                    }
+
                     if !wm.state.windows().contains(&window) {
                         wm.state.windows_mut().push(window);
                     }
