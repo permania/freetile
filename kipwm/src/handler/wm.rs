@@ -12,7 +12,7 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
-use super::event::event_loop;
+use super::{event::event_loop, ewmh};
 use crate::{
     config::{
         defaults::DEFAULT_LAYOUT_SRC,
@@ -138,31 +138,22 @@ impl WMAction {
                 if let Some(win) = wm.state.focused()
                     && wm.state.windows().contains(&win)
                 {
-                    // send WM_DELETE_WINDOW message
-                    let wm_protocols = wm
-                        .conn
-                        .intern_atom(false, b"WM_PROTOCOLS")
-                        .unwrap()
-                        .reply()
-                        .unwrap()
-                        .atom;
-                    let wm_delete = wm
-                        .conn
-                        .intern_atom(false, b"WM_DELETE_WINDOW")
-                        .unwrap()
-                        .reply()
-                        .unwrap()
-                        .atom;
-
+                    let wm_protocols = ewmh::intern(wm.conn, b"WM_PROTOCOLS");
+                    let wm_delete = ewmh::intern(wm.conn, b"WM_DELETE_WINDOW");
                     let data = [wm_delete, 0, 0, 0, 0];
-                    wm.conn
-                        .send_event(
-                            false,
-                            win,
-                            EventMask::NO_EVENT,
-                            ClientMessageEvent::new(32, win, wm_protocols, data),
-                        )
-                        .unwrap();
+
+                    if ewmh::atom_in_property(wm.conn, win, wm_protocols, wm_delete) {
+                        wm.conn
+                            .send_event(
+                                false,
+                                win,
+                                EventMask::NO_EVENT,
+                                ClientMessageEvent::new(32, win, wm_protocols, data),
+                            )
+                            .unwrap();
+                    } else {
+                        wm.conn.kill_client(win).unwrap();
+                    }
                 }
             }
             WMAction::FocusNext => {

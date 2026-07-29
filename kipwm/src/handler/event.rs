@@ -12,7 +12,9 @@ use x11rb::{
     connection::Connection,
     protocol::{
         Event,
-        xproto::{ChangeWindowAttributesAux, ConnectionExt, EventMask, NotifyDetail, NotifyMode},
+        xproto::{
+            AtomEnum, ChangeWindowAttributesAux, ConnectionExt, EventMask, NotifyDetail, NotifyMode,
+        },
     },
 };
 
