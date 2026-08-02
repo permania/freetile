@@ -75,9 +75,9 @@ pub fn event_loop(wm: &mut WM) {
                         continue;
                     }
 
-                    if !wm.state.windows().contains(&window) {
-                        wm.state.windows_mut().push(window);
-                    }
+		    if !wm.state.window_exists(window) {
+			wm.state.windows_mut().push(window);
+		    }
 
                     wm.conn
                         .change_window_attributes(
@@ -100,20 +100,18 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn.flush().unwrap();
                 }
                 Event::UnmapNotify(e) => {
-                    if !wm.state.windows().contains(&e.window) {
-                        continue;
-                    }
+		    if wm.ignore_unmaps.remove(&e.window) {
+			continue;
+		    }
 
-                    if wm.ignore_unmaps > 0 {
-                        eprintln!("ignore unmaps is more than 0: {}", wm.ignore_unmaps);
-                        wm.ignore_unmaps -= 1;
-                        continue;
-                    }
+		    if !wm.state.window_exists(e.window) {
+			continue;
+		    }
 
-                    wm.state.windows_mut().retain(|&w| w != e.window);
-                    if wm.state.focused() == Some(e.window) {
-                        wm.state.set_focused(wm.state.windows().last().copied());
-                    }
+		    wm.state.remove_window_everywhere(e.window);
+		    if wm.state.focused() == Some(e.window) {
+			wm.state.set_focused(wm.state.windows().last().copied());
+		    }
 
                     let intent = retile(wm);
                     map_intent(wm, intent);

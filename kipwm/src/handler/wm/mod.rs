@@ -1,4 +1,4 @@
-use std::os::unix::net::UnixListener;
+use std::{collections::HashSet, os::unix::net::UnixListener};
 
 use indexmap::IndexMap;
 use kiplib::config::rc::Config;
@@ -33,7 +33,7 @@ pub struct WM<'a> {
     pub conn: &'a RustConnection,
     pub screen: Screen,
     pub state: WMState,
-    pub ignore_unmaps: usize,
+    pub ignore_unmaps: HashSet<Window>,
     pub ipc_listener: UnixListener,
     pub layouts: IndexMap<String, LayoutEntry>,
     pub config: Config,
@@ -81,6 +81,16 @@ impl WMState {
 
     pub fn windows_mut(&mut self) -> &mut WindowSet {
         &mut self.tags[self.active_tag].windows
+    }
+
+    pub fn window_exists(&self, window: Window) -> bool {
+        self.tags.iter().any(|t| t.windows().contains(&window))
+    }
+
+    pub fn remove_window_everywhere(&mut self, window: Window) {
+        for tag in self.tags.iter_mut() {
+            tag.windows_mut().retain(|&w| w != window);
+        }
     }
 
     pub fn focused(&self) -> Option<u32> {

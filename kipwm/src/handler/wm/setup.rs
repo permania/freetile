@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use x11rb::{
     connection::Connection,
     protocol::xproto::{ChangeWindowAttributesAux, ConnectionExt, EventMask},
@@ -37,7 +39,7 @@ fn setup_wm_struct<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
             conn,
             screen: setup.roots[screen_num].clone(),
             state: wm_state,
-            ignore_unmaps: 0usize,
+            ignore_unmaps: HashSet::new(),
             ipc_listener: ipc::open_socket(),
             layouts,
             config,

@@ -93,6 +93,7 @@ impl WMAction {
                         .copied()
                         .filter(|&w| is_mapped(wm, w))
                         .collect();
+
                     if let Some(cur) = mapped.iter().position(|&w| w == win) {
                         let next = mapped[wrap_next(cur, mapped.len())];
                         let i = wm.state.windows().iter().position(|&w| w == win).unwrap();
@@ -100,11 +101,11 @@ impl WMAction {
                         wm.state.windows_mut().swap(i, j);
 
                         let intent = retile(wm);
-                        wm.ignore_unmaps += intent
-                            .unmapped
-                            .iter()
-                            .filter(|&&w| is_mapped(wm, w))
-                            .count();
+
+                        for w in intent.unmapped.iter() {
+                            wm.ignore_unmaps.insert(*w);
+                        }
+
                         map_intent(wm, intent);
 
                         if is_mapped(wm, win) {
@@ -129,11 +130,11 @@ impl WMAction {
                         wm.state.windows_mut().swap(i, j);
 
                         let intent = retile(wm);
-                        wm.ignore_unmaps += intent
-                            .unmapped
-                            .iter()
-                            .filter(|&&w| is_mapped(wm, w))
-                            .count();
+
+                        for w in intent.unmapped.iter() {
+                            wm.ignore_unmaps.insert(*w);
+                        }
+
                         map_intent(wm, intent);
 
                         if is_mapped(wm, win) {

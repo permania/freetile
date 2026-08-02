@@ -67,6 +67,7 @@ pub fn switch_workspace(wm: &mut WM, idx: &usize) {
     }
 
     for &win in wm.state.windows() {
+	wm.ignore_unmaps.insert(win);
         wm.conn.unmap_window(win).unwrap();
     }
 
