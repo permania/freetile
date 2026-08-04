@@ -81,9 +81,8 @@ pub fn switch_workspace(wm: &mut WM, idx: &usize) {
             .iter()
             .map(|p| p.0)
             .collect::<Vec<u32>>()
-            .contains(&wm.state.focused().expect("it was none for some reason"))
+            .contains(&wm.state.focused().expect("this should be infallible"))
         {
-            dbg!("FOUND IT");
             wm.state.set_focused(intent.mapped.last().map(|a| a.0));
         }
     } else {
@@ -93,10 +92,7 @@ pub fn switch_workspace(wm: &mut WM, idx: &usize) {
     map_intent(wm, intent);
 
     if let Some(win) = wm.state.focused() {
-        dbg!("GOOD HI", wm.state.focused());
         focus_and_warp(wm, win);
-    } else {
-        dbg!("SHOULDN'T HAPPEN");
     }
 
     wm.conn
