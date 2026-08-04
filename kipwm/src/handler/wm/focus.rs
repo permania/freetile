@@ -67,20 +67,36 @@ pub fn switch_workspace(wm: &mut WM, idx: &usize) {
     }
 
     for &win in wm.state.windows() {
-	wm.ignore_unmaps.insert(win);
+        wm.ignore_unmaps.insert(win);
         wm.conn.unmap_window(win).unwrap();
     }
 
     wm.state.active_tag = *idx;
-    if wm.state.focused().is_none() {
+
+    let intent = retile(wm);
+
+    if wm.state.focused().is_some() {
+        if !intent
+            .mapped
+            .iter()
+            .map(|p| p.0)
+            .collect::<Vec<u32>>()
+            .contains(&wm.state.focused().expect("it was none for some reason"))
+        {
+            dbg!("FOUND IT");
+            wm.state.set_focused(intent.mapped.last().map(|a| a.0));
+        }
+    } else {
         wm.state.set_focused(wm.state.windows().last().copied());
     }
 
-    let intent = retile(wm);
     map_intent(wm, intent);
 
     if let Some(win) = wm.state.focused() {
+        dbg!("GOOD HI", wm.state.focused());
         focus_and_warp(wm, win);
+    } else {
+        dbg!("SHOULDN'T HAPPEN");
     }
 
     wm.conn
