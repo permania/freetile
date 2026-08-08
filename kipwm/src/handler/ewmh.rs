@@ -8,6 +8,8 @@ pub struct Atoms {
     pub wm_delete_window: Atom,
     pub net_wm_window_type: Atom,
     pub net_wm_window_type_dock: Atom,
+    pub net_wm_state_fullscreen: Atom,
+    pub net_wm_state: Atom,
 }
 
 impl Atoms {
@@ -17,6 +19,8 @@ impl Atoms {
             wm_delete_window: intern(conn, b"WM_DELETE_WINDOW"),
             net_wm_window_type: intern(conn, b"_NET_WM_WINDOW_TYPE"),
             net_wm_window_type_dock: intern(conn, b"_NET_WM_WINDOW_TYPE_DOCK"),
+            net_wm_state_fullscreen: intern(conn, b"_NET_WM_STATE_FULLSCREEN"),
+            net_wm_state: intern(conn, b"_NET_WM_STATE"),
         }
     }
 }
@@ -34,6 +38,10 @@ pub fn atom_in_property(
         .unwrap_or(false)
 }
 
-pub fn intern(conn: &impl Connection, name: &[u8]) -> Atom {
-    conn.intern_atom(false, name).unwrap().reply().unwrap().atom
+fn intern(conn: &impl Connection, name: &[u8]) -> Atom {
+    conn.intern_atom(false, name)
+        .expect("failed to send InternAtom request")
+        .reply()
+        .expect("failed to get InternAtom reply")
+        .atom
 }

@@ -21,7 +21,7 @@ use super::{
     wm::{
         WM,
         focus::{focus_and_warp, focus_window, is_mapped},
-        layout::{map_intent, retile},
+        layout::{map_intent, retile, set_fullscreen},
     },
 };
 use crate::ipc::{self, Response};
@@ -82,7 +82,9 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn
                         .change_window_attributes(
                             window,
-                            &ChangeWindowAttributesAux::new().event_mask(EventMask::ENTER_WINDOW),
+                            &ChangeWindowAttributesAux::new()
+                                .event_mask(EventMask::ENTER_WINDOW)
+                                .border_pixel(0xff444444),
                         )
                         .unwrap();
 
@@ -108,13 +110,30 @@ pub fn event_loop(wm: &mut WM) {
                         continue;
                     }
 
+                    let was_focused = wm.state.focused() == Some(e.window);
+                    let killed_idx = wm.state.windows().iter().position(|&w| w == e.window);
+
                     wm.state.remove_window_everywhere(e.window);
-                    if wm.state.focused() == Some(e.window) {
-                        wm.state.set_focused(wm.state.windows().last().copied());
-                    }
 
                     let intent = retile(wm);
                     map_intent(wm, intent);
+
+                    if was_focused {
+                        let next = killed_idx
+                            .and_then(|idx| {
+                                let windows = wm.state.windows();
+                                windows.get(idx).copied().or_else(|| {
+                                    idx.checked_sub(1).and_then(|i| windows.get(i).copied())
+                                })
+                            })
+                            .or_else(|| wm.state.windows().last().copied());
+
+                        if let Some(next) = next {
+                            focus_and_warp(wm, next);
+                        } else {
+                            wm.state.set_focused(None);
+                        }
+                    }
 
                     wm.conn
                         .clear_area(false, wm.screen.root, 0, 0, 0, 0)
@@ -122,14 +141,64 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn.flush().unwrap();
                 }
                 Event::DestroyNotify(e) => {
-                    for tag in wm.state.tags.iter_mut() {
-                        tag.windows_mut().retain(|&w| w != e.window);
-                    }
+                    wm.state.remove_window_everywhere(e.window);
                 }
                 Event::EnterNotify(e) => {
-                    if e.mode == NotifyMode::NORMAL && e.detail != NotifyDetail::INFERIOR {
+                    if wm.ignore_enter {
+                        wm.ignore_enter = false;
+                    } else if e.mode == NotifyMode::NORMAL && e.detail != NotifyDetail::INFERIOR {
                         focus_window(wm, e.event);
                         wm.conn.flush().unwrap();
+                    }
+                }
+                Event::ClientMessage(e) => {
+                    dbg!("clientmessage: ", e);
+                    let type_name = wm
+                        .conn
+                        .get_atom_name(e.type_)
+                        .unwrap()
+                        .reply()
+                        .map(|r| String::from_utf8_lossy(&r.name).into_owned())
+                        .unwrap_or_default();
+                    let d = e.data.as_data32();
+                    let a1 = wm
+                        .conn
+                        .get_atom_name(d[1])
+                        .unwrap()
+                        .reply()
+                        .map(|r| String::from_utf8_lossy(&r.name).into_owned())
+                        .unwrap_or_default();
+                    let a2 = wm
+                        .conn
+                        .get_atom_name(d[2])
+                        .unwrap()
+                        .reply()
+                        .map(|r| String::from_utf8_lossy(&r.name).into_owned())
+                        .unwrap_or_default();
+                    eprintln!(
+                        "CLIENTMESSAGE: window={} type={} action={} prop1={} prop2={} source={}",
+                        e.window, type_name, d[0], a1, a2, d[3]
+                    );
+
+                    let d = e.data.as_data32();
+                    let action = d[0];
+
+                    if d[1] == wm.atoms.net_wm_state_fullscreen
+                        || d[2] == wm.atoms.net_wm_state_fullscreen
+                    {
+                        let is_fullscreen = wm.state.fullscreen_windows().contains(&e.window);
+                        let should_be_fullscreen = match action {
+                            0 => false,
+                            1 => true,
+                            2 => !is_fullscreen,
+                            _ => is_fullscreen,
+                        };
+
+                        dbg!(should_be_fullscreen, is_fullscreen);
+
+                        if should_be_fullscreen != is_fullscreen {
+                            set_fullscreen(wm, e.window, should_be_fullscreen);
+                        }
                     }
                 }
                 e => eprintln!("event: {:?}", e),

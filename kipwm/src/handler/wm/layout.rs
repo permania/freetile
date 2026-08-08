@@ -1,7 +1,10 @@
 use rhai::{Dynamic, Scope};
 use x11rb::{
     connection::Connection,
-    protocol::xproto::{ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, Window},
+    protocol::xproto::{
+        AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, PropMode, Window,
+    },
+    wrapper::ConnectionExt as _,
 };
 
 use super::{
@@ -10,18 +13,25 @@ use super::{
 };
 use crate::config::{
     ksn_reader::WMConfig,
-    layout::{
-        reader,
-        rhai::{LayoutIntent, Rect, WMSlot},
-    },
+    layout::rhai::{LayoutIntent, Rect, WMSlot},
 };
 
 pub fn retile(wm: &mut WM) -> LayoutIntent {
-    let n = wm.state.windows().len();
+    let n = wm.state.windows().len() - wm.state.fullscreen_windows_tag().len();
+
+    let all_windows = wm.state.windows().to_vec();
+    let fullscreen = wm.state.fullscreen_windows_tag();
+    let windows: Vec<Window> = all_windows
+        .iter()
+        .filter(|w| !fullscreen.contains(w))
+        .copied()
+        .collect();
+
     if n == 0 {
         return LayoutIntent {
             mapped: vec![],
             unmapped: vec![],
+            fullscreen,
         };
     }
 
@@ -57,7 +67,7 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
 
     let slot: WMSlot = match result {
         Some(s) => s,
-        None => reader::master(0_i64),
+        None => WMSlot::Window,
     };
 
     let rects = slot.compute(
@@ -66,7 +76,7 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
         wm.config.gap_inner().unwrap_or(0),
         wm.config.gap_outer().unwrap_or(0),
     );
-    let windows = wm.state.windows().to_vec();
+
     let len = windows.len().min(rects.len());
 
     let mapped: Vec<(Window, Rect)> = (0..len).map(|i| (windows[i], rects[i])).collect();
@@ -74,7 +84,11 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
 
     dbg!(&mapped, &unmapped);
 
-    LayoutIntent { mapped, unmapped }
+    LayoutIntent {
+        mapped,
+        unmapped,
+        fullscreen,
+    }
 }
 
 pub fn map_intent(wm: &mut WM, intent: LayoutIntent) {
@@ -83,6 +97,20 @@ pub fn map_intent(wm: &mut WM, intent: LayoutIntent) {
             wm.conn.map_window(window).unwrap();
         }
         configure(wm, window, rect.x, rect.y, rect.w, rect.h);
+    }
+
+    for w in intent.fullscreen {
+        if !is_mapped(wm, w) {
+            wm.conn.map_window(w).unwrap();
+        }
+        configure_borderless(
+            wm,
+            w,
+            0,
+            0,
+            wm.screen.width_in_pixels as u32,
+            wm.screen.height_in_pixels as u32,
+        );
     }
 
     for w in intent.unmapped {
@@ -94,23 +122,65 @@ pub fn map_intent(wm: &mut WM, intent: LayoutIntent) {
     wm.conn.flush().unwrap();
 }
 
-fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
-    let border_width = wm.config.border_weight().unwrap_or(0);
+pub fn set_fullscreen(wm: &mut WM, window: Window, full: bool) {
+    dbg!("set_fullscreen called");
 
+    let fs = wm.state.fullscreen_windows_mut();
+    if full {
+        fs.insert(window);
+    } else {
+        fs.remove(&window);
+
+        let color = if wm.state.focused() == Some(window) {
+            wm.config.active_border_color().unwrap_or(0xff8aadf4)
+        } else {
+            wm.config.inactive_border_color().unwrap_or(0xff444444)
+        };
+
+        dbg!(window, wm.state.focused(), color);
+
+        wm.conn
+            .change_window_attributes(
+                window,
+                &ChangeWindowAttributesAux::new().border_pixel(color),
+            )
+            .unwrap();
+    }
+
+    let states: Vec<u32> = if full {
+        vec![wm.atoms.net_wm_state_fullscreen]
+    } else {
+        vec![]
+    };
+
+    wm.conn
+        .change_property32(
+            PropMode::REPLACE,
+            window,
+            wm.atoms.net_wm_state,
+            AtomEnum::ATOM,
+            &states,
+        )
+        .unwrap();
+
+    let intent = retile(wm);
+    map_intent(wm, intent);
+}
+
+// TODO: add this next update
+#[allow(dead_code)]
+#[allow(unused_variables)]
+pub fn set_max(wm: &mut WM, window: Window, max: bool) {
+    todo!()
+}
+
+fn configure_inner(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32, border_width: u32) {
     if w == 0 || h == 0 {
         return;
     }
     if w <= border_width * 2 || h <= border_width * 2 {
         return;
     }
-
-    wm.conn
-        .change_window_attributes(
-            window,
-            &ChangeWindowAttributesAux::new().border_pixel(0xff444444),
-        )
-        .unwrap();
-
     wm.conn
         .configure_window(
             window,
@@ -122,6 +192,15 @@ fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
                 .border_width(border_width),
         )
         .unwrap();
+}
+
+fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
+    let border_width = wm.config.border_weight().unwrap_or(0);
+    configure_inner(wm, window, x, y, w, h, border_width);
+}
+
+fn configure_borderless(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
+    configure_inner(wm, window, x, y, w, h, 0);
 }
 
 pub fn switch_layout<T>(wm: &mut WM, layout: T)

@@ -13,6 +13,8 @@ use super::{
 use crate::config::ksn_reader::WMConfig;
 
 pub fn focus_and_warp(wm: &mut WM, window: Window) {
+    wm.ignore_enter = true;
+
     focus_window(wm, window);
     warp_to_window(wm, window);
 }

@@ -34,6 +34,7 @@ pub struct WM<'a> {
     pub screen: Screen,
     pub state: WMState,
     pub ignore_unmaps: HashSet<Window>,
+    pub ignore_enter: bool,
     pub ipc_listener: UnixListener,
     pub layouts: IndexMap<String, LayoutEntry>,
     pub config: Config,
@@ -42,6 +43,7 @@ pub struct WM<'a> {
 
 pub struct WMState {
     pub tags: [Tag; 8],
+    pub fullscreen_windows: HashSet<Window>,
     pub active_tag: usize,
     pub active_layout: String,
     pub engine: Engine,
@@ -68,6 +70,7 @@ impl WMState {
 
         Self {
             tags: Default::default(),
+            fullscreen_windows: Default::default(),
             active_tag: 0,
             active_layout: String::new(),
             engine,
@@ -79,17 +82,38 @@ impl WMState {
         &self.tags[self.active_tag].windows
     }
 
+    pub fn fullscreen_windows(&self) -> &HashSet<Window> {
+        &self.fullscreen_windows
+    }
+
+    pub fn fullscreen_windows_tag(&self) -> HashSet<Window> {
+        self.fullscreen_windows
+            .iter()
+            .copied()
+            .filter(|w| self.windows().contains(w))
+            .collect::<HashSet<Window>>()
+    }
+
+    pub fn fullscreen_windows_mut(&mut self) -> &mut HashSet<Window> {
+        &mut self.fullscreen_windows
+    }
+
     pub fn windows_mut(&mut self) -> &mut WindowSet {
         &mut self.tags[self.active_tag].windows
     }
 
+    pub fn window_to_tag(&mut self, window: Window, tag: usize) {
+        self.tags[tag].windows.push(window)
+    }
+
     pub fn window_exists(&self, window: Window) -> bool {
-        self.tags.iter().any(|t| t.windows().contains(&window))
+        self.tags.iter().any(|t| t.windows.contains(&window))
     }
 
     pub fn remove_window_everywhere(&mut self, window: Window) {
+        self.fullscreen_windows_mut().retain(|&w| w != window);
         for tag in self.tags.iter_mut() {
-            tag.windows_mut().retain(|&w| w != window);
+            tag.windows.retain(|&w| w != window);
         }
     }
 
@@ -105,16 +129,5 @@ impl WMState {
 impl Default for WMState {
     fn default() -> Self {
         Self::new(Engine::new())
-    }
-}
-
-impl Tag {
-    #[allow(dead_code)]
-    pub fn windows(&self) -> &WindowSet {
-        &self.windows
-    }
-
-    pub fn windows_mut(&mut self) -> &mut WindowSet {
-        &mut self.windows
     }
 }

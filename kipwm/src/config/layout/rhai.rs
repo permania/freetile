@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use x11rb::protocol::xproto::Window;
 
 #[derive(Debug, Clone, Copy)]
@@ -36,6 +38,7 @@ pub struct Rect {
 pub struct LayoutIntent {
     pub mapped: Vec<(Window, Rect)>,
     pub unmapped: Vec<Window>,
+    pub fullscreen: HashSet<Window>,
 }
 
 fn apply_inner_gap(a: &mut Rect, b: &mut Rect, dir: Dir, gap: u32) {

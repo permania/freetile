@@ -151,12 +151,12 @@ impl WMAction {
                     && wm.state.windows().contains(&win)
                 {
                     wm.state.set_focused(wm.state.windows().last().copied());
-                    wm.state.windows_mut().retain(|&w| w != win);
+                    wm.state.remove_window_everywhere(win);
                     wm.conn
                         .clear_area(false, wm.screen.root, 0, 0, 0, 0)
                         .unwrap();
 
-                    wm.state.tags[*idx].windows_mut().push(win);
+                    wm.state.window_to_tag(win, *idx);
 
                     switch_workspace(wm, idx);
                 }

@@ -163,15 +163,6 @@ impl Tagged {
             })
             .collect()
     }
-
-    // pub fn parse(s: &str) -> Tagged {
-    //     match s.chars().next() {
-    //         Some('!') => Tagged::Bang(s[1..].to_string()),
-    //         Some('?') => Tagged::Question(s[1..].to_string()),
-    //         Some('@') => Tagged::At(s[1..].to_string()),
-    //         _ => Tagged::Literal(s.to_string()),
-    //     }
-    // }
 }
 
 pub fn read_config_from_path<T>(path: T) -> Result<Config, std::io::Error>

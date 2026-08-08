@@ -40,6 +40,7 @@ fn setup_wm_struct<'a>(conn: &'a RustConnection, screen_num: usize) -> WM<'a> {
             screen: setup.roots[screen_num].clone(),
             state: wm_state,
             ignore_unmaps: HashSet::new(),
+            ignore_enter: false,
             ipc_listener: ipc::open_socket(),
             layouts,
             config,
