@@ -31,16 +31,16 @@ impl WMAction {
                     if ewmh::atom_in_property(
                         wm.conn,
                         win,
-                        wm.atoms.wm_protocols,
-                        wm.atoms.wm_delete_window,
+                        wm.atoms._wm_protocols,
+                        wm.atoms._wm_delete_window,
                     ) {
-                        let data = [wm.atoms.wm_delete_window, 0, 0, 0, 0];
+                        let data = [wm.atoms._wm_delete_window, 0, 0, 0, 0];
                         wm.conn
                             .send_event(
                                 false,
                                 win,
                                 EventMask::NO_EVENT,
-                                ClientMessageEvent::new(32, win, wm.atoms.wm_protocols, data),
+                                ClientMessageEvent::new(32, win, wm.atoms._wm_protocols, data),
                             )
                             .unwrap();
                     } else {

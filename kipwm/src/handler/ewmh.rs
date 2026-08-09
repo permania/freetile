@@ -4,23 +4,27 @@ use x11rb::{
 };
 
 pub struct Atoms {
-    pub wm_protocols: Atom,
-    pub wm_delete_window: Atom,
-    pub net_wm_window_type: Atom,
-    pub net_wm_window_type_dock: Atom,
-    pub net_wm_state_fullscreen: Atom,
-    pub net_wm_state: Atom,
+    pub _wm_protocols: Atom,
+    pub _wm_delete_window: Atom,
+    pub _net_wm_window_type: Atom,
+    pub _net_wm_window_type_dock: Atom,
+    pub _net_wm_strut: Atom,
+    pub _net_wm_strut_partial: Atom,
+    pub _net_wm_state_fullscreen: Atom,
+    pub _net_wm_state: Atom,
 }
 
 impl Atoms {
     pub fn new(conn: &impl Connection) -> Self {
         Self {
-            wm_protocols: intern(conn, b"WM_PROTOCOLS"),
-            wm_delete_window: intern(conn, b"WM_DELETE_WINDOW"),
-            net_wm_window_type: intern(conn, b"_NET_WM_WINDOW_TYPE"),
-            net_wm_window_type_dock: intern(conn, b"_NET_WM_WINDOW_TYPE_DOCK"),
-            net_wm_state_fullscreen: intern(conn, b"_NET_WM_STATE_FULLSCREEN"),
-            net_wm_state: intern(conn, b"_NET_WM_STATE"),
+            _wm_protocols: intern(conn, b"WM_PROTOCOLS"),
+            _wm_delete_window: intern(conn, b"WM_DELETE_WINDOW"),
+            _net_wm_window_type: intern(conn, b"_NET_WM_WINDOW_TYPE"),
+            _net_wm_window_type_dock: intern(conn, b"_NET_WM_WINDOW_TYPE_DOCK"),
+            _net_wm_strut: intern(conn, b"_NET_WM_STRUT"),
+            _net_wm_strut_partial: intern(conn, b"_NET_WM_STRUT_PARTIAL"),
+            _net_wm_state_fullscreen: intern(conn, b"_NET_WM_STATE_FULLSCREEN"),
+            _net_wm_state: intern(conn, b"_NET_WM_STATE"),
         }
     }
 }

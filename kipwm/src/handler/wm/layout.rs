@@ -8,7 +8,7 @@ use x11rb::{
 };
 
 use super::{
-    WM,
+    StrutPartial, WM,
     focus::{is_mapped, wrap_next, wrap_prev},
 };
 use crate::config::{
@@ -35,12 +35,12 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
         };
     }
 
-    let bounds = Rect {
+    let bounds = wm.state.bounds(Rect {
         x: 0,
         y: 0,
         w: wm.screen.width_in_pixels as u32,
         h: wm.screen.height_in_pixels as u32,
-    };
+    });
 
     let mut scope = Scope::new();
 
@@ -148,7 +148,7 @@ pub fn set_fullscreen(wm: &mut WM, window: Window, full: bool) {
     }
 
     let states: Vec<u32> = if full {
-        vec![wm.atoms.net_wm_state_fullscreen]
+        vec![wm.atoms._net_wm_state_fullscreen]
     } else {
         vec![]
     };
@@ -157,7 +157,7 @@ pub fn set_fullscreen(wm: &mut WM, window: Window, full: bool) {
         .change_property32(
             PropMode::REPLACE,
             window,
-            wm.atoms.net_wm_state,
+            wm.atoms._net_wm_state,
             AtomEnum::ATOM,
             &states,
         )
@@ -201,6 +201,67 @@ fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
 
 fn configure_borderless(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
     configure_inner(wm, window, x, y, w, h, 0);
+}
+
+pub fn read_struts(wm: &mut WM, window: Window) -> Option<StrutPartial> {
+    let partial = wm
+        .conn
+        .get_property(
+            false,
+            window,
+            wm.atoms._net_wm_strut_partial,
+            AtomEnum::CARDINAL,
+            0,
+            12,
+        )
+        .ok()?
+        .reply()
+        .ok()?;
+
+    if let Some(res) = partial.value32().map(|vals| {
+        let v: Vec<u32> = vals.collect::<Vec<u32>>();
+        StrutPartial {
+            left: v[0],
+            right: v[1],
+            top: v[2],
+            bottom: v[3],
+            left_start_y: v[4],
+            left_end_y: v[5],
+            right_start_y: v[6],
+            right_end_y: v[7],
+            top_start_y: v[8],
+            top_end_y: v[9],
+            bottom_start_y: v[10],
+            bottom_end_y: v[11],
+        }
+    }) {
+        return Some(res);
+    }
+
+    let legacy = wm
+        .conn
+        .get_property(
+            false,
+            window,
+            wm.atoms._net_wm_strut,
+            AtomEnum::CARDINAL,
+            0,
+            4,
+        )
+        .ok()?
+        .reply()
+        .ok()?;
+
+    legacy.value32().map(|vals| {
+        let v: Vec<u32> = vals.collect::<Vec<u32>>();
+        StrutPartial {
+            left: v[0],
+            right: v[1],
+            top: v[2],
+            bottom: v[3],
+            ..Default::default()
+        }
+    })
 }
 
 pub fn switch_layout<T>(wm: &mut WM, layout: T)

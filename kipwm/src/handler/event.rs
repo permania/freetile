@@ -21,7 +21,7 @@ use super::{
     wm::{
         WM,
         focus::{focus_and_warp, focus_window, is_mapped},
-        layout::{map_intent, retile, set_fullscreen},
+        layout::{map_intent, read_struts, retile, set_fullscreen},
     },
 };
 use crate::ipc::{self, Response};
@@ -65,9 +65,15 @@ pub fn event_loop(wm: &mut WM) {
                     let is_dock = ewmh::atom_in_property(
                         wm.conn,
                         window,
-                        wm.atoms.net_wm_window_type,
-                        wm.atoms.net_wm_window_type_dock,
+                        wm.atoms._net_wm_window_type,
+                        wm.atoms._net_wm_window_type_dock,
                     );
+
+                    if let Some(s) = read_struts(wm, window) {
+                        wm.state.active_struts.insert(window, s);
+                        let intent = retile(wm);
+                        map_intent(wm, intent);
+                    }
 
                     if is_dock {
                         wm.conn.map_window(window).unwrap();
@@ -142,6 +148,9 @@ pub fn event_loop(wm: &mut WM) {
                 }
                 Event::DestroyNotify(e) => {
                     wm.state.remove_window_everywhere(e.window);
+
+                    let intent = retile(wm);
+                    map_intent(wm, intent);
                 }
                 Event::EnterNotify(e) => {
                     if wm.ignore_enter {
@@ -183,8 +192,8 @@ pub fn event_loop(wm: &mut WM) {
                     let d = e.data.as_data32();
                     let action = d[0];
 
-                    if d[1] == wm.atoms.net_wm_state_fullscreen
-                        || d[2] == wm.atoms.net_wm_state_fullscreen
+                    if d[1] == wm.atoms._net_wm_state_fullscreen
+                        || d[2] == wm.atoms._net_wm_state_fullscreen
                     {
                         let is_fullscreen = wm.state.fullscreen_windows().contains(&e.window);
                         let should_be_fullscreen = match action {
@@ -199,6 +208,22 @@ pub fn event_loop(wm: &mut WM) {
                         if should_be_fullscreen != is_fullscreen {
                             set_fullscreen(wm, e.window, should_be_fullscreen);
                         }
+                    }
+                }
+                Event::PropertyNotify(e) => {
+                    if e.atom == wm.atoms._net_wm_strut_partial || e.atom == wm.atoms._net_wm_strut
+                    {
+                        match read_struts(wm, e.window) {
+                            Some(s) => {
+                                wm.state.active_struts.insert(e.window, s);
+                            }
+                            None => {
+                                wm.state.active_struts.remove(&e.window);
+                            }
+                        }
+
+                        let intent = retile(wm);
+                        map_intent(wm, intent);
                     }
                 }
                 e => eprintln!("event: {:?}", e),

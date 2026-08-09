@@ -1,4 +1,7 @@
-use std::{collections::HashSet, os::unix::net::UnixListener};
+use std::{
+    collections::{HashMap, HashSet},
+    os::unix::net::UnixListener,
+};
 
 use indexmap::IndexMap;
 use kiplib::config::rc::Config;
@@ -9,7 +12,10 @@ use x11rb::{
 };
 
 use super::ewmh::Atoms;
-use crate::config::{defaults::DEFAULT_LAYOUT_SRC, layout::reader::EngineSetup};
+use crate::config::{
+    defaults::DEFAULT_LAYOUT_SRC,
+    layout::{reader::EngineSetup, rhai::Rect},
+};
 
 pub mod action;
 pub mod focus;
@@ -29,6 +35,30 @@ pub struct LayoutEntry {
     pub func_name: String,
 }
 
+#[derive(Default, Clone, Copy, Debug)]
+pub struct StrutPartial {
+    left: u32,
+    right: u32,
+    top: u32,
+    bottom: u32,
+    #[allow(dead_code)]
+    left_start_y: u32,
+    #[allow(dead_code)]
+    left_end_y: u32,
+    #[allow(dead_code)]
+    right_start_y: u32,
+    #[allow(dead_code)]
+    right_end_y: u32,
+    #[allow(dead_code)]
+    top_start_y: u32,
+    #[allow(dead_code)]
+    top_end_y: u32,
+    #[allow(dead_code)]
+    bottom_start_y: u32,
+    #[allow(dead_code)]
+    bottom_end_y: u32,
+}
+
 pub struct WM<'a> {
     pub conn: &'a RustConnection,
     pub screen: Screen,
@@ -44,6 +74,7 @@ pub struct WM<'a> {
 pub struct WMState {
     pub tags: [Tag; 8],
     pub fullscreen_windows: HashSet<Window>,
+    pub active_struts: HashMap<Window, StrutPartial>,
     pub active_tag: usize,
     pub active_layout: String,
     pub engine: Engine,
@@ -71,6 +102,7 @@ impl WMState {
         Self {
             tags: Default::default(),
             fullscreen_windows: Default::default(),
+            active_struts: Default::default(),
             active_tag: 0,
             active_layout: String::new(),
             engine,
@@ -111,6 +143,7 @@ impl WMState {
     }
 
     pub fn remove_window_everywhere(&mut self, window: Window) {
+        _ = self.active_struts.remove(&window);
         self.fullscreen_windows_mut().retain(|&w| w != window);
         for tag in self.tags.iter_mut() {
             tag.windows.retain(|&w| w != window);
@@ -123,6 +156,23 @@ impl WMState {
 
     pub fn set_focused(&mut self, set: Option<u32>) {
         self.tags[self.active_tag].focused = set;
+    }
+
+    pub fn bounds(&self, screen: Rect) -> Rect {
+        let (mut left, mut right, mut top, mut bottom) = (0u32, 0u32, 0u32, 0u32);
+        for s in self.active_struts.values() {
+            left = left.max(s.left);
+            right = right.max(s.right);
+            top = top.max(s.top);
+            bottom = bottom.max(s.bottom);
+        }
+
+        Rect {
+            x: screen.x + left as i32,
+            y: screen.y + top as i32,
+            w: screen.w.saturating_sub(left + right),
+            h: screen.h.saturating_sub(top + bottom),
+        }
     }
 }
 
