@@ -3,9 +3,12 @@ layouts:
     ratio ratiotile
 
 border:
-    active_color #a4b887ff
-    inactive_color #444444ff
-    weight 4
+    active_color_inner #a4b887ff
+    active_color_outer #a4b887ff
+    inactive_color_inner #a4b887ff
+    inactive_color_outer #444444ff
+    weight_inner 2
+    weight_outer 2
 
 gaps:
     inner 8

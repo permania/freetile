@@ -49,7 +49,7 @@ impl WMAction {
                 }
             }
             WMAction::FocusNext => {
-                if focused_index(&wm.state).is_some() {
+                if focused_index(wm).is_some() {
                     let windows: Vec<Window> = wm
                         .state
                         .windows()
@@ -67,7 +67,7 @@ impl WMAction {
                 }
             }
             WMAction::FocusPrevious => {
-                if focused_index(&wm.state).is_some() {
+                if focused_index(wm).is_some() {
                     let windows: Vec<Window> = wm
                         .state
                         .windows()

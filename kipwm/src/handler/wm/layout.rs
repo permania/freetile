@@ -1,15 +1,13 @@
 use rhai::{Dynamic, Scope};
 use x11rb::{
     connection::Connection,
-    protocol::xproto::{
-        AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, PropMode, Window,
-    },
+    protocol::xproto::{AtomEnum, ConfigureWindowAux, ConnectionExt, PropMode, Window},
     wrapper::ConnectionExt as _,
 };
 
 use super::{
     StrutPartial, WM,
-    focus::{is_mapped, wrap_next, wrap_prev},
+    focus::{border_colors_for, is_mapped, set_border_colors, wrap_next, wrap_prev},
 };
 use crate::config::{
     ksn_reader::WMConfig,
@@ -70,12 +68,7 @@ pub fn retile(wm: &mut WM) -> LayoutIntent {
         None => WMSlot::Window,
     };
 
-    let rects = slot.compute(
-        n,
-        bounds,
-        wm.config.gap_inner().unwrap_or(0),
-        wm.config.gap_outer().unwrap_or(0),
-    );
+    let rects = slot.compute(n, bounds, wm.config.gap_inner(), wm.config.gap_outer());
 
     let len = windows.len().min(rects.len());
 
@@ -97,6 +90,17 @@ pub fn map_intent(wm: &mut WM, intent: LayoutIntent) {
             wm.conn.map_window(window).unwrap();
         }
         configure(wm, window, rect.x, rect.y, rect.w, rect.h);
+
+        let (inner, outer) = border_colors_for(wm, window);
+
+        set_border_colors(
+            wm,
+            window,
+            inner,
+            outer,
+            wm.config.border_weight_inner(),
+            wm.config.border_weight_outer(),
+        );
     }
 
     for w in intent.fullscreen {
@@ -130,21 +134,6 @@ pub fn set_fullscreen(wm: &mut WM, window: Window, full: bool) {
         fs.insert(window);
     } else {
         fs.remove(&window);
-
-        let color = if wm.state.focused() == Some(window) {
-            wm.config.active_border_color().unwrap_or(0xff8aadf4)
-        } else {
-            wm.config.inactive_border_color().unwrap_or(0xff444444)
-        };
-
-        dbg!(window, wm.state.focused(), color);
-
-        wm.conn
-            .change_window_attributes(
-                window,
-                &ChangeWindowAttributesAux::new().border_pixel(color),
-            )
-            .unwrap();
     }
 
     let states: Vec<u32> = if full {
@@ -174,11 +163,19 @@ pub fn set_max(wm: &mut WM, window: Window, max: bool) {
     todo!()
 }
 
-fn configure_inner(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32, border_width: u32) {
+fn configure_inner(
+    wm: &mut WM,
+    window: Window,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    border_weight: u32,
+) {
     if w == 0 || h == 0 {
         return;
     }
-    if w <= border_width * 2 || h <= border_width * 2 {
+    if w <= border_weight * 2 || h <= border_weight * 2 {
         return;
     }
     wm.conn
@@ -187,16 +184,18 @@ fn configure_inner(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32, 
             &ConfigureWindowAux::new()
                 .x(x)
                 .y(y)
-                .width(w - border_width * 2)
-                .height(h - border_width * 2)
-                .border_width(border_width),
+                .width(w - border_weight * 2)
+                .height(h - border_weight * 2)
+                .border_width(border_weight),
         )
         .unwrap();
 }
 
 fn configure(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {
-    let border_width = wm.config.border_weight().unwrap_or(0);
-    configure_inner(wm, window, x, y, w, h, border_width);
+    let inner_border_weight = wm.config.border_weight_inner();
+    let outer_border_weight = wm.config.border_weight_outer();
+    let border_weight = inner_border_weight + outer_border_weight;
+    configure_inner(wm, window, x, y, w, h, border_weight as u32);
 }
 
 fn configure_borderless(wm: &mut WM, window: Window, x: i32, y: i32, w: u32, h: u32) {

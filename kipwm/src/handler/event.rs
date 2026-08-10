@@ -88,9 +88,7 @@ pub fn event_loop(wm: &mut WM) {
                     wm.conn
                         .change_window_attributes(
                             window,
-                            &ChangeWindowAttributesAux::new()
-                                .event_mask(EventMask::ENTER_WINDOW)
-                                .border_pixel(0xff444444),
+                            &ChangeWindowAttributesAux::new().event_mask(EventMask::ENTER_WINDOW),
                         )
                         .unwrap();
 
